@@ -1,5 +1,5 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 echo ====================================================================
@@ -74,27 +74,29 @@ if not exist ".env" (
 )
 
 findstr /C:"GEMINI_API_KEY=your_gemini_api_key_here" ".env" >nul 2>&1
-if %errorlevel% equ 0 (
-    echo.
-    echo Paste your Google Gemini API Key (or press Enter to set it later in .env):
-    set /p "USER_GEMINI_KEY=GEMINI_API_KEY: "
-    if not "%USER_GEMINI_KEY%"=="" (
-        powershell -NoProfile -Command "(Get-Content '.env') -replace 'GEMINI_API_KEY=your_gemini_api_key_here', ('GEMINI_API_KEY=' + $env:USER_GEMINI_KEY) | Set-Content '.env'"
-        echo [OK] Saved GEMINI_API_KEY to .env.
-    )
-)
+if %errorlevel% neq 0 goto :shortcut
 
+echo.
+echo Paste your Google Gemini API Key - or press Enter to set it later in .env:
+set "USER_GEMINI_KEY="
+set /p "USER_GEMINI_KEY=GEMINI_API_KEY: "
+if "!USER_GEMINI_KEY!"=="" goto :shortcut
+powershell -NoProfile -Command "$c = Get-Content -Raw '.env'; $c = $c.Replace('GEMINI_API_KEY=your_gemini_api_key_here', 'GEMINI_API_KEY=' + $env:USER_GEMINI_KEY); Set-Content -NoNewline '.env' $c"
+echo [OK] Saved GEMINI_API_KEY to .env.
+
+:shortcut
 echo [5/5] Creating Desktop shortcut ("CyberShield Mesh")...
 powershell -NoProfile -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\CyberShield Mesh.lnk'); $s.TargetPath = '%~dp0LAUNCH_CYBERSHIELD_ADMIN.bat'; $s.WorkingDirectory = '%~dp0'; $s.Description = 'CyberShield Mesh Autonomous Endpoint Security'; $s.Save()" >nul 2>&1
 
 echo.
 echo ====================================================================
 echo  INSTALLATION COMPLETE!
-echo  - Desktop shortcut created: "CyberShield Mesh"
-echo  - Launch anytime with: LAUNCH_CYBERSHIELD_ADMIN.bat (Auto-Admin)
+echo  - Desktop shortcut created: CyberShield Mesh
+echo  - Launch anytime with: LAUNCH_CYBERSHIELD_ADMIN.bat
 echo  - Optional standalone .exe build: BUILD_WINDOWS_EXES.bat
 echo ====================================================================
 echo.
+set "LAUNCH_NOW=Y"
 set /p "LAUNCH_NOW=Launch CyberShield Mesh as Administrator now? [Y/n]: "
 if /I "%LAUNCH_NOW%"=="N" goto :done
 call "%~dp0LAUNCH_CYBERSHIELD_ADMIN.bat"
