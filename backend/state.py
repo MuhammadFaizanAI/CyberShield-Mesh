@@ -44,6 +44,13 @@ class RuntimeState:
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self._protection_status: str = "ARMED"
         self._active_connections: list[dict[str, Any]] = []
+        self._telemetry: dict[str, Any] = {
+            "tx_kbps": 0.0,
+            "rx_kbps": 0.0,
+            "cpu_percent": 0.0,
+            "mem_percent": 0.0,
+            "history": [],
+        }
         self._handled_pairs: dict[tuple[int, str], float] = {}
         self._activity_feed: list[dict[str, Any]] = [
             {
@@ -89,6 +96,27 @@ class RuntimeState:
         with self._lock:
             return copy.deepcopy(self._active_connections)
 
+    def update_telemetry(self, tx_kbps: float, rx_kbps: float, cpu_percent: float, mem_percent: float) -> dict[str, Any]:
+        point = {
+            "t": utc_now_iso(),
+            "tx": round(max(0.0, tx_kbps), 2),
+            "rx": round(max(0.0, rx_kbps), 2),
+        }
+        with self._lock:
+            history: list[dict[str, Any]] = self._telemetry.setdefault("history", [])
+            history.append(point)
+            if len(history) > 36:
+                del history[:-36]
+            self._telemetry["tx_kbps"] = point["tx"]
+            self._telemetry["rx_kbps"] = point["rx"]
+            self._telemetry["cpu_percent"] = round(cpu_percent, 1)
+            self._telemetry["mem_percent"] = round(mem_percent, 1)
+            return copy.deepcopy(self._telemetry)
+
+    def get_telemetry(self) -> dict[str, Any]:
+        with self._lock:
+            return copy.deepcopy(self._telemetry)
+
     def is_pair_in_cooldown(self, pid: int, remote_ip: str, cooldown_sec: float) -> bool:
         now = time.monotonic()
         with self._lock:
@@ -132,6 +160,7 @@ class RuntimeState:
                 "os_name": f"{platform.system()} {platform.release()}",
                 "is_admin": _detect_is_admin(),
                 "active_connections": copy.deepcopy(self._active_connections),
+                "telemetry": copy.deepcopy(self._telemetry),
                 "incidents": db.list_incidents(limit=30),
                 "total_incidents": db.count_incidents(),
                 "blocked_ips": db.list_blocked_ips(),
@@ -208,12 +237,13 @@ class ConnectionManager:
             payload.update(extra)
         self.broadcast(payload)
 
-    def emit_connections(self, connections: list[dict[str, Any]]) -> None:
+    def emit_connections(self, connections: list[dict[str, Any]], telemetry: Optional[dict[str, Any]] = None) -> None:
         self._runtime.set_active_connections(connections)
         self.broadcast(
             {
                 "type": "connections_update",
                 "active_connections": connections,
+                "telemetry": telemetry if telemetry is not None else self._runtime.get_telemetry(),
                 "protection_status": self._runtime.get_protection_status(),
                 "timestamp": utc_now_iso(),
             }

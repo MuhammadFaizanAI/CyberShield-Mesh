@@ -146,6 +146,7 @@ class NetworkMonitor:
         self._running = False
         self._last_conn_broadcast = 0.0
         self._last_conn_signature: tuple[tuple[int, str, int, str], ...] = ()
+        self._last_net_io: Optional[tuple[float, int, int]] = None
 
     @property
     def is_running(self) -> bool:
@@ -242,20 +243,45 @@ class NetworkMonitor:
         except Exception as exc:
             logger.exception("Monitor-only alert dispatch failed: %s", exc)
 
+    def _sample_system_telemetry(self) -> dict[str, Any]:
+        now = time.monotonic()
+        tx_kbps = 0.0
+        rx_kbps = 0.0
+        try:
+            io = psutil.net_io_counters()
+            if io is not None:
+                if self._last_net_io is not None:
+                    prev_t, prev_sent, prev_recv = self._last_net_io
+                    dt = max(0.1, now - prev_t)
+                    tx_kbps = max(0.0, (io.bytes_sent - prev_sent) / 1024.0 / dt)
+                    rx_kbps = max(0.0, (io.bytes_recv - prev_recv) / 1024.0 / dt)
+                self._last_net_io = (now, io.bytes_sent, io.bytes_recv)
+        except Exception:
+            pass
+
+        try:
+            cpu_pct = float(psutil.cpu_percent(interval=None))
+            mem_pct = float(psutil.virtual_memory().percent)
+        except Exception:
+            cpu_pct, mem_pct = 0.0, 0.0
+
+        return state.update_telemetry(tx_kbps, rx_kbps, cpu_pct, mem_pct)
+
     async def _poll_loop(self) -> None:
         while self._running:
             try:
                 active_conns, flagged_events = await asyncio.to_thread(scan_live_connections)
+                telemetry = await asyncio.to_thread(self._sample_system_telemetry)
 
                 sig = tuple(
                     (c["pid"], c["remote_ip"], c["remote_port"], c["risk"])
                     for c in active_conns[:50]
                 )
                 now = time.monotonic()
-                if sig != self._last_conn_signature or (now - self._last_conn_broadcast) >= 2.0:
+                if sig != self._last_conn_signature or (now - self._last_conn_broadcast) >= 1.5:
                     self._last_conn_signature = sig
                     self._last_conn_broadcast = now
-                    ws_manager.emit_connections(active_conns)
+                    ws_manager.emit_connections(active_conns, telemetry)
 
                 for event in flagged_events:
                     logger.warning(
