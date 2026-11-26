@@ -1,0 +1,48 @@
+{
+  "name": "cybershield-mesh-desktop",
+  "version": "1.0.0",
+  "description": "CyberShield Mesh — Autonomous Gemini Endpoint Intrusion Defense Desktop App",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.cybershield.mesh",
+    "productName": "CyberShieldMesh",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../dist_backend",
+        "to": "backend",
+        "filter": [
+          "cybershield_backend.exe"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "portable": {
+      "artifactName": "CyberShieldMesh-Portable.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "electron-builder": "^25.1.8"
+  }
+}

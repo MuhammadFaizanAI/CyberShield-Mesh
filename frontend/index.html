@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberShield Mesh — Autonomous Intrusion Defense</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Space Grotesk', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #050811;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    .stage-bg {
+      background:
+        radial-gradient(circle at 22% 50%, rgba(244, 63, 94, 0.08), transparent 42%),
+        radial-gradient(circle at 52% 48%, rgba(14, 165, 233, 0.12), transparent 48%),
+        radial-gradient(circle at 84% 35%, rgba(16, 185, 129, 0.08), transparent 40%);
+    }
+
+    @keyframes phoneBuzz {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      20% { transform: translate(-2px, 1px) rotate(-1.5deg); }
+      40% { transform: translate(2px, -1px) rotate(1.5deg); }
+      60% { transform: translate(-2px, -1px) rotate(-1deg); }
+      80% { transform: translate(2px, 1px) rotate(1deg); }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35); }
+      50% { box-shadow: 0 0 0 8px rgba(56, 189, 248, 0); }
+    }
+
+    .phone-buzz { animation: phoneBuzz 0.38s ease-in-out 4; }
+    .agent-pulse { animation: pulseGlow 2.4s ease-in-out infinite; }
+
+    .chat-scroll::-webkit-scrollbar { width: 4px; }
+    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+    .chat-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.65); border-radius: 9999px; }
+  </style>
+</head>
+<body class="stage-bg flex h-screen w-screen flex-col overflow-hidden">
+
+  <!-- COMPACT TOP HEADER -->
+  <header class="z-20 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-950/85 px-4 backdrop-blur-md">
+    <div class="flex items-center gap-2.5">
+      <span class="agent-pulse flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
+        <i class="fa-solid fa-shield-halved text-xs"></i>
+      </span>
+      <span class="font-display text-sm font-bold tracking-tight text-white">CyberShield Mesh</span>
+      <span id="wsBadge" class="hidden sm:inline-flex items-center gap-1.5 rounded bg-slate-800/90 px-2 py-0.5 font-mono text-[10px] text-amber-300">
+        <span id="wsDot" class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+        <span id="wsLabel">CONNECTING</span>
+      </span>
+    </div>
+
+    <!-- Step Progress Pills (1 -> 5) -->
+    <div id="stepPills" class="hidden xl:flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/90 px-2 py-1 font-mono text-[10px]">
+      <span data-s="1" class="step-pill rounded px-1.5 py-0.5 text-slate-500">1. Intrusion</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="2" class="step-pill rounded px-1.5 py-0.5 text-slate-500">2. AI Defend</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="3" class="step-pill rounded px-1.5 py-0.5 text-slate-500">3. Mobile Alert</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="4" class="step-pill rounded px-1.5 py-0.5 text-slate-500">4. Cut Link</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="5" class="step-pill rounded px-1.5 py-0.5 text-slate-500">5. Source Blocked</span>
+    </div>
+
+    <!-- Top-Right Live Controls: Sound, Simulate Attack, Reset / Unblock -->
+    <div class="flex items-center gap-2 text-[11px]">
+      <button id="soundToggleBtn" type="button" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-cyan-300 hover:border-cyan-400 transition" title="Toggle Sound">
+        <i id="soundIcon" class="fa-solid fa-volume-high text-xs"></i>
+      </button>
+
+      <button id="simulateBtn" type="button" class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1 font-bold text-white shadow-md shadow-rose-600/25 hover:bg-rose-500 active:scale-95 transition">
+        <i class="fa-solid fa-bolt text-[10px]"></i>
+        <span>Simulate Attack</span>
+      </button>
+
+      <button id="resetBtn" type="button" class="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 font-bold text-emerald-200 hover:bg-emerald-500/25 active:scale-95 transition">
+        <i class="fa-solid fa-rotate-left text-[10px]"></i>
+        <span>Reset / Unblock</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SINGLE-SCREEN STAGE -->
+  <main class="relative flex flex-1 w-full min-h-0 overflow-hidden">
+
+    <!-- ANIMATED WORKFLOW CANVAS (LEFT / CENTER) -->
+    <section class="relative flex-1 h-full overflow-hidden">
+      <canvas id="flowCanvas" class="block h-full w-full"></canvas>
+
+      <!-- Current Action Banner (Top-Left Floating) -->
+      <div class="pointer-events-none absolute top-3 left-4 z-10 max-w-md rounded-2xl border border-slate-800/90 bg-slate-950/85 px-3.5 py-2.5 backdrop-blur-md">
+        <div id="phaseBadge" class="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+          LIVE MONITOR &bull; PROTECTED
+        </div>
+        <div id="phaseTitle" class="mt-0.5 font-display text-sm font-bold text-white">
+          Autonomous Defense Ready
+        </div>
+        <p id="phaseDesc" class="mt-0.5 text-[11px] leading-snug text-slate-300">
+          Monitoring outbound TCP sockets in real time. No suspicious connections detected.
+        </p>
+      </div>
+
+      <!-- Mobile Phone Push Alert Card (Bottom-Left Floating) -->
+      <div id="mobileCard" class="pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-slate-800 bg-slate-950/90 p-3 backdrop-blur-md transition-all">
+        <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
+          <span class="flex items-center gap-1.5 font-bold text-cyan-300">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            MOBILE ALERT
+          </span>
+          <span id="mobileTime" class="text-slate-400">Standby</span>
+        </div>
+        <div id="mobileAlertTitle" class="mt-1 text-xs font-bold text-slate-200">
+          Synced &amp; Standing By
+        </div>
+        <div id="mobileAlertBody" class="mt-0.5 text-[11px] leading-snug text-slate-400">
+          Push notification fires via ntfy.sh the instant Gemini flags an intrusion.
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT LIVE DASHBOARD PANEL (COMPACT, ZERO PAGE SCROLL) -->
+    <aside class="z-10 flex w-80 lg:w-[348px] shrink-0 flex-col gap-2 border-l border-slate-800/90 bg-slate-950/88 p-3 backdrop-blur-md min-h-0 overflow-hidden">
+      <!-- Status Title Row -->
+      <div class="flex shrink-0 items-center justify-between">
+        <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+          <i class="fa-solid fa-gauge-high mr-1"></i>Live Dashboard
+        </span>
+        <span id="shieldStatusBadge" class="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
+          PROTECTED
+        </span>
+      </div>
+
+      <!-- 4 Key Live Status Cards (Compact 2x2 Grid to Guarantee Zero Scroll) -->
+      <div class="grid shrink-0 grid-cols-2 gap-1.5 text-[11px]">
+        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
+          <div class="font-mono text-[9px] text-slate-400">ATTACKER SOURCE</div>
+          <div id="dashSource" class="mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300">
+            NONE DETECTED
+          </div>
+          <div id="dashSourceState" class="mt-0.5 truncate text-[10px] text-slate-400">
+            Watching outbound ports
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
+          <div class="font-mono text-[9px] text-slate-400">PROCESS &amp; LINK</div>
+          <div id="dashLink" class="mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300">
+            ALL CLEAR
+          </div>
+          <div id="dashLinkSub" class="mt-0.5 truncate text-[10px] text-slate-400">
+            No unauthorized sockets
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
+          <div class="font-mono text-[9px] text-slate-400">FIREWALL STATUS</div>
+          <div id="dashBlock" class="mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300">
+            MONITORING
+          </div>
+          <div id="dashBlockSub" class="mt-0.5 truncate text-[10px] text-slate-400">
+            0 IPs blocked
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
+          <div class="font-mono text-[9px] text-slate-400">MOBILE PUSH</div>
+          <div id="dashMobile" class="mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300">
+            READY
+          </div>
+          <div id="dashMobileSub" class="mt-0.5 truncate text-[10px] text-slate-400">
+            ntfy.sh device armed
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Live Event Log (Last 3 Events) -->
+      <div class="shrink-0 rounded-xl border border-slate-800/90 bg-slate-900/60 p-2">
+        <div class="flex items-center justify-between font-mono text-[9px] font-bold uppercase tracking-wider text-slate-400">
+          <span>Action Feed</span>
+          <span id="blockedCountPill" class="text-slate-500">0 blocked</span>
+        </div>
+        <div id="miniLog" class="mt-1 space-y-0.5 font-mono text-[10px] text-slate-300"></div>
+      </div>
+
+      <!-- Compact "Ask CyberShield AI" Interactive Chat Panel -->
+      <div class="flex flex-1 min-h-0 flex-col rounded-xl border border-cyan-500/30 bg-slate-900/75 p-2.5">
+        <div class="flex shrink-0 items-center justify-between">
+          <span class="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+            <i class="fa-solid fa-sparkles text-[10px]"></i>
+            Ask CyberShield AI
+          </span>
+          <span class="font-mono text-[9px] text-slate-400">Gemini Live</span>
+        </div>
+
+        <!-- Scrollable Chat Reply Area -->
+        <div id="chatMessages" class="chat-scroll select-text mt-1.5 flex-1 min-h-0 space-y-1.5 overflow-y-auto pr-1 text-[11px] leading-snug">
+          <div class="rounded-lg border border-slate-800 bg-slate-950/70 px-2.5 py-1.5 text-slate-300">
+            Ask <span class="font-mono text-cyan-300">"Why did you block 10.100.5.67?"</span> or type <span class="font-mono text-emerald-300">"Unblock 10.100.5.67"</span> to manage live firewall rules.
+          </div>
+        </div>
+
+        <!-- Input Bar -->
+        <form id="chatForm" class="mt-2 flex shrink-0 items-center gap-1.5">
+          <input
+            id="chatInput"
+            type="text"
+            autocomplete="off"
+            placeholder="Ask AI or unblock an IP..."
+            class="select-text w-full rounded-lg border border-slate-700/90 bg-slate-950/90 px-2.5 py-1.5 text-[11px] text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
+          />
+          <button
+            id="chatSendBtn"
+            type="submit"
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 active:scale-95 transition disabled:opacity-50"
+            title="Send to CyberShield AI"
+          >
+            <i class="fa-solid fa-paper-plane text-[10px]"></i>
+          </button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // =========================================================================
+    // LIVE WEBSOCKET STATE (STEP 0 = PROTECTED / IDLE, STEPS 1 -> 5 = LIVE)
+    // =========================================================================
+    const live = {
+      step: 0,
+      status: 'PROTECTED',
+      ip: '',
+      port: 0,
+      pid: 0,
+      processName: '',
+      aiSummary: 'Monitoring outbound TCP sockets in real time. No suspicious connections detected.',
+      blockedIps: [],
+      soundOn: true,
+      time: 0,
+      packets: [],
+      alertParticles: [],
+      logs: ['System ready • Monitoring outbound TCP sockets'],
+      wsConnected: false
+    };
+
+    // =========================================================================
+    // SUBTLE SYNTHESIZED AUDIO FEEDBACK
+    // =========================================================================
+    let audioCtx = null;
+    function playStepTone(stepNum) {
+      if (!live.soundOn || stepNum <= 0) return;
+      try {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        }
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (stepNum === 1) {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.linearRampToValueAtTime(510, now + 0.16);
+          gain.gain.setValueAtTime(0.045, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          osc.start(now); osc.stop(now + 0.19);
+        } else if (stepNum === 3) {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(660, now);
+          osc.frequency.setValueAtTime(880, now + 0.1);
+          gain.gain.setValueAtTime(0.055, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+          osc.start(now); osc.stop(now + 0.25);
+        } else if (stepNum === 4 || stepNum === 5) {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(820, now + 0.18);
+          gain.gain.setValueAtTime(0.045, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc.start(now); osc.stop(now + 0.21);
+        }
+      } catch (_) {}
+    }
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function pushLog(msg) {
+      if (!msg) return;
+      if (live.logs[0] !== msg) {
+        live.logs.unshift(msg);
+        live.logs = live.logs.slice(0, 3);
+      }
+      renderLogs();
+    }
+
+    function renderLogs() {
+      const container = document.getElementById('miniLog');
+      container.innerHTML = live.logs
+        .slice(0, 3)
+        .map((line, i) => `<div class="${i === 0 ? 'text-cyan-200 font-semibold' : 'text-slate-400'} truncate" title="${escapeHtml(line)}">${escapeHtml(line)}</div>`)
+        .join('');
+    }
+
+    function formatPeer() {
+      if (!live.ip) return 'NONE DETECTED';
+      return live.port ? `${live.ip}:${live.port}` : live.ip;
+    }
+
+    function formatProc() {
+      if (!live.processName && !live.pid) return 'No active threat';
+      if (live.processName && live.pid) return `${live.processName} (PID ${live.pid})`;
+      return live.processName || `PID ${live.pid}`;
+    }
+
+    // =========================================================================
+    // UI STATE RENDERER FOR STEPS 0..5
+    // =========================================================================
+    function applyLiveUI(playAudio = false) {
+      const step = live.step;
+      const peer = formatPeer();
+      const proc = formatProc();
+      const blockedCount = live.blockedIps.length;
+
+      const phaseBadge = document.getElementById('phaseBadge');
+      const phaseTitle = document.getElementById('phaseTitle');
+      const phaseDesc = document.getElementById('phaseDesc');
+      const shieldBadge = document.getElementById('shieldStatusBadge');
+
+      const dashSource = document.getElementById('dashSource');
+      const dashSourceState = document.getElementById('dashSourceState');
+      const dashLink = document.getElementById('dashLink');
+      const dashLinkSub = document.getElementById('dashLinkSub');
+      const dashBlock = document.getElementById('dashBlock');
+      const dashBlockSub = document.getElementById('dashBlockSub');
+      const dashMobile = document.getElementById('dashMobile');
+      const dashMobileSub = document.getElementById('dashMobileSub');
+
+      const mobileCard = document.getElementById('mobileCard');
+      const mobileTime = document.getElementById('mobileTime');
+      const mobileTitle = document.getElementById('mobileAlertTitle');
+      const mobileBody = document.getElementById('mobileAlertBody');
+
+      document.getElementById('blockedCountPill').textContent = `${blockedCount} blocked`;
+
+      if (step === 0) {
+        phaseBadge.textContent = 'LIVE MONITOR • PROTECTED';
+        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400';
+        phaseTitle.textContent = 'Autonomous Defense Ready';
+        phaseDesc.textContent = live.aiSummary || 'Monitoring outbound TCP sockets in real time. No suspicious connections detected.';
+
+        shieldBadge.textContent = 'PROTECTED';
+        shieldBadge.className = 'rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300';
+
+        dashSource.textContent = 'NONE DETECTED';
+        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300';
+        dashSourceState.textContent = 'Watching outbound ports';
+
+        dashLink.textContent = 'ALL CLEAR';
+        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashLinkSub.textContent = 'No unauthorized sockets';
+
+        dashBlock.textContent = blockedCount > 0 ? `${blockedCount} ACTIVE` : 'MONITORING';
+        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashBlockSub.textContent = blockedCount > 0 ? live.blockedIps.join(', ') : '0 IPs blocked';
+
+        dashMobile.textContent = 'READY';
+        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300';
+        dashMobileSub.textContent = 'ntfy.sh device armed';
+
+        mobileTime.textContent = 'Standby';
+        mobileTitle.textContent = 'Synced & Standing By';
+        mobileBody.textContent = 'Push notification fires via ntfy.sh the instant Gemini flags an intrusion.';
+        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-slate-800 bg-slate-950/90 p-3 backdrop-blur-md transition-all';
+      } else if (step === 1) {
+        phaseBadge.textContent = 'STEP 1/5 • INTRUSION DETECTED';
+        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-rose-400';
+        phaseTitle.textContent = `Suspicious Outbound Link to ${peer}`;
+        phaseDesc.textContent = `${proc} opened an unauthorized connection. Handing live telemetry to Google Gemini.`;
+
+        shieldBadge.textContent = 'INTRUSION DETECTED';
+        shieldBadge.className = 'rounded-full border border-rose-500/50 bg-rose-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-300';
+
+        dashSource.textContent = peer;
+        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
+        dashSourceState.textContent = 'Active outbound stream';
+
+        dashLink.textContent = 'ACTIVE & SUSPICIOUS';
+        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
+        dashLinkSub.textContent = proc;
+
+        dashBlock.textContent = 'PENDING AI';
+        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
+        dashBlockSub.textContent = 'Evaluating peer IP';
+
+        dashMobile.textContent = 'QUEUED';
+        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
+        dashMobileSub.textContent = 'Preparing urgent push';
+
+        mobileTime.textContent = 'Detecting...';
+        mobileTitle.textContent = 'Suspicious Activity Detected';
+        mobileBody.textContent = `${proc} streaming to ${peer}.`;
+        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-rose-500/50 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
+      } else if (step === 2) {
+        phaseBadge.textContent = 'STEP 2/5 • GEMINI AI DEFENDING';
+        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300';
+        phaseTitle.textContent = 'Gemini AI Reasoning & Calling Tools';
+        phaseDesc.textContent = live.aiSummary || `Evaluating ${proc} -> ${peer} and invoking autonomous containment tools.`;
+
+        shieldBadge.textContent = 'AI DEFENDING';
+        shieldBadge.className = 'rounded-full border border-cyan-400/50 bg-cyan-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-cyan-200';
+
+        dashSource.textContent = peer;
+        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
+        dashSourceState.textContent = 'Flagged malicious by AI';
+
+        dashLink.textContent = 'INTERCEPTED BY AI';
+        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
+        dashLinkSub.textContent = proc;
+
+        dashBlock.textContent = 'PREPARING BLOCK';
+        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
+        dashBlockSub.textContent = `Targeting ${live.ip}`;
+
+        dashMobile.textContent = 'DISPATCHING...';
+        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
+        dashMobileSub.textContent = 'Calling send_mobile_alert';
+
+        mobileTime.textContent = 'Sending...';
+        mobileTitle.textContent = 'AI Agent Engaged Defense';
+        mobileBody.textContent = `Intercepting ${proc} -> ${peer}.`;
+        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-cyan-400/50 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
+      } else if (step === 3) {
+        phaseBadge.textContent = 'STEP 3/5 • MOBILE ALERT SENT';
+        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-amber-300';
+        phaseTitle.textContent = 'Push Notification Delivered to Phone';
+        phaseDesc.textContent = `Urgent ntfy.sh alert dispatched with ${proc} and remote IP ${live.ip}. Severing socket next.`;
+
+        shieldBadge.textContent = 'MOBILE ALERT SENT';
+        shieldBadge.className = 'rounded-full border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-200';
+
+        dashSource.textContent = peer;
+        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
+        dashSourceState.textContent = 'Reported to owner phone';
+
+        dashLink.textContent = 'CONTAINING SOCKET';
+        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
+        dashLinkSub.textContent = `Killing ${proc}`;
+
+        dashBlock.textContent = 'QUEUED FOR DROP';
+        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
+        dashBlockSub.textContent = `Blocking ${live.ip}`;
+
+        dashMobile.textContent = 'DELIVERED';
+        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashMobileSub.textContent = 'Sent via ntfy.sh push';
+
+        mobileTime.textContent = 'Just now';
+        mobileTitle.textContent = `URGENT: Intrusion to ${live.ip}`;
+        mobileBody.textContent = `${proc} flagged. Severing connection & blocking IP.`;
+
+        mobileCard.classList.remove('phone-buzz');
+        void mobileCard.offsetWidth;
+        mobileCard.className = 'phone-buzz pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-amber-400/75 bg-slate-950/95 p-3 backdrop-blur-md transition-all';
+      } else if (step === 4) {
+        phaseBadge.textContent = 'STEP 4/5 • CONNECTION SEVERED';
+        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-sky-300';
+        phaseTitle.textContent = `Process Terminated & Link Severed`;
+        phaseDesc.textContent = `Terminated ${proc} to cut live exfiltration to ${peer}. Applying Windows Firewall deny rules.`;
+
+        shieldBadge.textContent = 'LINK SEVERED';
+        shieldBadge.className = 'rounded-full border border-sky-400/50 bg-sky-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-sky-200';
+
+        dashSource.textContent = peer;
+        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
+        dashSourceState.textContent = 'Live session terminated';
+
+        dashLink.textContent = 'DISCONNECTED';
+        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashLinkSub.textContent = `Killed ${proc}`;
+
+        dashBlock.textContent = 'WRITING RULES...';
+        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
+        dashBlockSub.textContent = `In+Out deny for ${live.ip}`;
+
+        dashMobile.textContent = 'SENT • SYNCED';
+        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashMobileSub.textContent = 'Owner notified';
+
+        mobileTime.textContent = 'Just now';
+        mobileTitle.textContent = 'Connection Severed';
+        mobileBody.textContent = `Terminated ${proc}. Blocking ${live.ip} in firewall.`;
+        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-emerald-500/50 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
+      } else if (step >= 5) {
+        phaseBadge.textContent = 'STEP 5/5 • SOURCE BLOCKED';
+        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400';
+        phaseTitle.textContent = `${live.ip || 'Attacker'} Blocked Bidirectionally`;
+        phaseDesc.textContent = live.aiSummary || `Inbound & outbound firewall rules now block ${live.ip}. Your PC is protected.`;
+
+        shieldBadge.textContent = 'SOURCE BLOCKED';
+        shieldBadge.className = 'rounded-full border border-emerald-500/50 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300';
+
+        dashSource.textContent = peer;
+        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashSourceState.textContent = 'Blocked at firewall wall';
+
+        dashLink.textContent = 'SEVERED & BLOCKED';
+        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashLinkSub.textContent = `Killed ${proc}`;
+
+        dashBlock.textContent = `BLOCKED (${live.ip})`;
+        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashBlockSub.textContent = 'In+Out Firewall rules active';
+
+        dashMobile.textContent = 'DELIVERED';
+        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
+        dashMobileSub.textContent = 'Containment complete';
+
+        mobileTime.textContent = 'Resolved';
+        mobileTitle.textContent = 'Source Blocked • PC Safe';
+        mobileBody.textContent = `${live.ip} blocked in Windows Firewall. ${proc} stopped.`;
+        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-emerald-500/60 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
+      }
+
+      // Step Progress Pills
+      document.querySelectorAll('.step-pill').forEach(el => {
+        const s = Number(el.getAttribute('data-s'));
+        if (step === 0) {
+          el.className = 'step-pill rounded px-1.5 py-0.5 text-slate-500';
+        } else if (s === step) {
+          el.className = 'step-pill rounded bg-cyan-500/25 px-1.5 py-0.5 font-bold text-cyan-200 border border-cyan-400/40';
+        } else if (s < step) {
+          el.className = 'step-pill rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-300';
+        } else {
+          el.className = 'step-pill rounded px-1.5 py-0.5 text-slate-500';
+        }
+      });
+
+      renderLogs();
+      if (playAudio) playStepTone(step);
+    }
+
+    // =========================================================================
+    // HANDLE INCOMING WEBSOCKET EVENTS
+    // =========================================================================
+    function handleServerEvent(data) {
+      if (!data || data.type === 'pong') return;
+
+      const prevStep = live.step;
+      if (typeof data.step === 'number') live.step = data.step;
+      if (data.status) live.status = data.status;
+      if (typeof data.ip === 'string') live.ip = data.ip;
+      if (typeof data.port === 'number') live.port = data.port;
+      if (typeof data.pid === 'number') live.pid = data.pid;
+      if (typeof data.process_name === 'string') live.processName = data.process_name;
+      if (typeof data.ai_summary === 'string' && data.ai_summary.trim()) {
+        live.aiSummary = data.ai_summary.trim();
+      } else if (live.step === 0) {
+        live.aiSummary = 'Monitoring outbound TCP sockets in real time. No suspicious connections detected.';
+      }
+      if (Array.isArray(data.blocked_ips)) live.blockedIps = data.blocked_ips;
+
+      if (data.type === 'reset' || live.step === 0) {
+        live.packets = [];
+        live.alertParticles = [];
+      }
+
+      if (Array.isArray(data.logs) && data.logs.length > 0 && (data.type === 'snapshot' || data.type === 'reset')) {
+        live.logs = data.logs.slice(0, 3);
+      } else if (data.log_entry) {
+        pushLog(data.log_entry);
+      }
+
+      const stepChanged = live.step !== prevStep;
+      applyLiveUI(stepChanged && data.type !== 'snapshot');
+    }
+
+    // =========================================================================
+    // WEBSOCKET CONNECTION WITH AUTO-RECONNECT
+    // =========================================================================
+    let ws = null;
+    let reconnectTimer = null;
+
+    function setWsBadge(connected) {
+      live.wsConnected = connected;
+      const badge = document.getElementById('wsBadge');
+      const dot = document.getElementById('wsDot');
+      const label = document.getElementById('wsLabel');
+      if (connected) {
+        badge.className = 'hidden sm:inline-flex items-center gap-1.5 rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 font-mono text-[10px] text-emerald-300';
+        dot.className = 'h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse';
+        label.textContent = 'LIVE WS';
+      } else {
+        badge.className = 'hidden sm:inline-flex items-center gap-1.5 rounded bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 font-mono text-[10px] text-amber-300';
+        dot.className = 'h-1.5 w-1.5 rounded-full bg-amber-400';
+        label.textContent = 'RECONNECTING';
+      }
+    }
+
+    function connectWebSocket() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host || '127.0.0.1:8000';
+      const url = `${proto}//${host}/ws`;
+
+      try {
+        ws = new WebSocket(url);
+      } catch (_) {
+        setWsBadge(false);
+        reconnectTimer = setTimeout(connectWebSocket, 1500);
+        return;
+      }
+
+      ws.onopen = () => {
+        setWsBadge(true);
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const parsed = JSON.parse(evt.data);
+          handleServerEvent(parsed);
+        } catch (_) {}
+      };
+
+      ws.onclose = () => {
+        setWsBadge(false);
+        reconnectTimer = setTimeout(connectWebSocket, 1500);
+      };
+
+      ws.onerror = () => {
+        try { ws.close(); } catch (_) {}
+      };
+    }
+
+    // Periodic keepalive ping
+    setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try { ws.send('ping'); } catch (_) {}
+      }
+    }, 25000);
+
+    // =========================================================================
+    // CANVAS ANIMATION: ATTACKER SOURCE -> YOUR PC + AI AGENT -> MOBILE PHONE
+    // =========================================================================
+    const canvas = document.getElementById('flowCanvas');
+    const ctx = canvas.getContext('2d');
+    let lastTs = performance.now();
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(300, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(200, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawNodeBox(x, y, w, h, title, sub, borderCol, fillCol, titleCol) {
+      ctx.save();
+      ctx.fillStyle = fillCol;
+      ctx.strokeStyle = borderCol;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x - w / 2, y - h / 2, w, h, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = titleCol;
+      ctx.font = 'bold 12px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, x, y - 4);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.fillText(sub, x, y + 13);
+      ctx.restore();
+    }
+
+    function renderFrame(now) {
+      const dt = Math.min(0.08, (now - lastTs) / 1000);
+      lastTs = now;
+      live.time += dt;
+
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const srcX = Math.max(92, w * 0.17);
+      const srcY = h * 0.54;
+
+      const pcX = w * 0.54;
+      const pcY = h * 0.54;
+
+      const phoneX = Math.min(w - 86, w * 0.85);
+      const phoneY = Math.max(110, h * 0.25);
+
+      const step = live.step;
+      const isIdle = step === 0;
+      const isBlocked = step >= 5;
+      const isSevered = step >= 4;
+      const isDefending = step >= 2;
+
+      // Subtle idle radar pulse around PC shield when monitoring
+      if (isIdle) {
+        const pulse = (live.time * 0.55) % 1;
+        const radius = 58 + pulse * 68;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(pcX, pcY, radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - pulse) * 0.28})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 1. Connection line between Attacker Source and PC
+      ctx.save();
+      if (isIdle) {
+        ctx.setLineDash([4, 8]);
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.25)';
+        ctx.lineWidth = 1.5;
+      } else if (isSevered) {
+        ctx.setLineDash([7, 7]);
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+        ctx.lineWidth = 2;
+      } else {
+        ctx.setLineDash([]);
+        ctx.strokeStyle = step === 1 ? 'rgba(244, 63, 94, 0.65)' : 'rgba(56, 189, 248, 0.5)';
+        ctx.lineWidth = 2.5;
+      }
+      ctx.beginPath();
+      ctx.moveTo(srcX + 60, srcY);
+      ctx.lineTo(pcX - 66, pcY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Visual X cut mark when connection is severed (Step 4+)
+      if (isSevered) {
+        const midX = (srcX + pcX) * 0.5;
+        const midY = srcY;
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(midX - 10, midY - 10);
+        ctx.lineTo(midX + 10, midY + 10);
+        ctx.moveTo(midX + 10, midY - 10);
+        ctx.lineTo(midX - 10, midY + 10);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fda4af';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('LINK CUT', midX, midY - 16);
+      }
+
+      // Shield barrier line when source is blocked (Step 5)
+      const wallX = pcX - 92;
+      if (isBlocked) {
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(wallX, pcY - 48);
+        ctx.lineTo(wallX, pcY + 48);
+        ctx.stroke();
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BLOCKED', wallX, pcY - 56);
+      }
+
+      // 2. Notification path from AI Agent/PC to Mobile Phone
+      ctx.strokeStyle = step >= 3 ? 'rgba(52, 211, 153, 0.58)' : 'rgba(148, 163, 184, 0.22)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(pcX + 26, pcY - 42);
+      ctx.quadraticCurveTo(pcX + 42, phoneY + 20, phoneX - 48, phoneY + 8);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 3. Spawn & animate live traffic packets (only when active step >= 1)
+      if (!isIdle) {
+        const spawnRate = step === 1 ? 0.1 : (isBlocked ? 0.06 : 0.04);
+        if (Math.random() < spawnRate && live.packets.length < 14) {
+          live.packets.push({
+            t: 0,
+            speed: (isBlocked ? 0.022 : 0.018) + Math.random() * 0.006,
+            yOffset: (Math.random() - 0.5) * 14
+          });
+        }
+      }
+
+      for (let i = live.packets.length - 1; i >= 0; i--) {
+        const p = live.packets[i];
+        p.t += p.speed;
+
+        const startX = srcX + 62;
+        const endX = pcX - 66;
+        const bounceX = wallX - 6;
+
+        let px = startX + (endX - startX) * p.t;
+        let py = srcY + p.yOffset + Math.sin(live.time * 6 + i) * 2;
+        let col = step === 1 ? '#fb7185' : '#38bdf8';
+
+        if (isBlocked && px >= bounceX) {
+          const over = px - bounceX;
+          px = bounceX - over * 1.4;
+          py = srcY + p.yOffset - over * 0.7;
+          col = '#34d399';
+        } else if (isSevered && p.t > 0.45) {
+          col = '#94a3b8';
+        }
+
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+
+        if (p.t >= 1 || (isBlocked && px < startX - 10)) {
+          live.packets.splice(i, 1);
+        }
+      }
+
+      // 4. Spawn & animate mobile push alert pulse (Step 3+)
+      if (step >= 3 && Math.random() < 0.08 && live.alertParticles.length < 6) {
+        live.alertParticles.push({ t: 0 });
+      }
+      for (let i = live.alertParticles.length - 1; i >= 0; i--) {
+        const a = live.alertParticles[i];
+        a.t += 0.025;
+        const u = Math.min(1, a.t);
+        const ax = (1 - u) * (1 - u) * (pcX + 26) + 2 * (1 - u) * u * (pcX + 42) + u * u * (phoneX - 48);
+        const ay = (1 - u) * (1 - u) * (pcY - 42) + 2 * (1 - u) * u * (phoneY + 20) + u * u * (phoneY + 8);
+
+        ctx.beginPath();
+        ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#34d399';
+        ctx.fill();
+
+        if (a.t >= 1) live.alertParticles.splice(i, 1);
+      }
+
+      // 5. Attacker Source Node
+      const srcSub = isIdle
+        ? 'NO ACTIVE THREAT'
+        : (isBlocked ? `BLOCKED: ${live.ip}` : (live.ip ? `${live.ip}:${live.port || ''}` : 'EXTERNAL PEER'));
+      drawNodeBox(
+        srcX, srcY, 124, 58,
+        'ATTACKER SOURCE',
+        srcSub,
+        isIdle ? '#334155' : (isBlocked ? '#34d399' : '#fb7185'),
+        isIdle ? 'rgba(15, 23, 42, 0.85)' : (isBlocked ? 'rgba(6, 78, 59, 0.35)' : 'rgba(136, 19, 55, 0.35)'),
+        isIdle ? '#94a3b8' : (isBlocked ? '#a7f3d0' : '#fecdd3')
+      );
+
+      // 6. Your PC + AI Agent Node
+      const pcSub = isIdle
+        ? 'MONITORING'
+        : (isDefending ? 'GEMINI ACTIVE' : (live.processName ? live.processName.slice(0, 18) : 'INTRUSION'));
+      drawNodeBox(
+        pcX, pcY, 136, 68,
+        'YOUR PC + AI AGENT',
+        pcSub,
+        isIdle ? '#34d399' : (isDefending ? '#38bdf8' : '#fb7185'),
+        isIdle ? 'rgba(6, 78, 59, 0.28)' : (isDefending ? 'rgba(12, 74, 110, 0.45)' : 'rgba(136, 19, 55, 0.28)'),
+        '#f8fafc'
+      );
+
+      // 7. Mobile Phone Node
+      drawNodeBox(
+        phoneX, phoneY, 118, 56,
+        'MOBILE PHONE',
+        step >= 3 ? 'ALERT SENT' : 'STANDBY',
+        step >= 3 ? '#34d399' : '#475569',
+        step >= 3 ? 'rgba(6, 78, 59, 0.35)' : 'rgba(15, 23, 42, 0.88)',
+        step >= 3 ? '#a7f3d0' : '#e2e8f0'
+      );
+
+      requestAnimationFrame(renderFrame);
+    }
+
+    // =========================================================================
+    // HEADER BUTTON CONTROLS & AI CHAT WIRING
+    // =========================================================================
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      live.soundOn = !live.soundOn;
+      document.getElementById('soundIcon').className = live.soundOn
+        ? 'fa-solid fa-volume-high text-xs'
+        : 'fa-solid fa-volume-xmark text-xs text-slate-500';
+    });
+
+    document.getElementById('simulateBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('simulateBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        pushLog(`[ERR] Simulate request failed: ${err.message}`);
+      } finally {
+        setTimeout(() => { btn.disabled = false; }, 1200);
+      }
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('resetBtn');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        pushLog(`[ERR] Reset request failed: ${err.message}`);
+      } finally {
+        setTimeout(() => { btn.disabled = false; }, 600);
+      }
+    });
+
+    const chatMessages = document.getElementById('chatMessages');
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatSendBtn = document.getElementById('chatSendBtn');
+
+    function appendChatBubble(role, text, actions = []) {
+      const div = document.createElement('div');
+      if (role === 'user') {
+        div.className = 'ml-4 rounded-lg border border-cyan-500/30 bg-cyan-500/15 px-2.5 py-1.5 text-cyan-100';
+        div.textContent = text;
+      } else {
+        div.className = 'mr-2 rounded-lg border border-slate-800 bg-slate-950/85 px-2.5 py-1.5 text-slate-200';
+        const actionHtml = (actions && actions.length > 0)
+          ? `<div class="mt-1 flex flex-wrap gap-1">${actions.map(a => `<span class="rounded bg-emerald-500/20 border border-emerald-500/35 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300"><i class="fa-solid fa-wrench mr-1"></i>${escapeHtml(a.tool)}(${escapeHtml(a.ip || '')})</span>`).join('')}</div>`
+          : '';
+        div.innerHTML = `<div>${escapeHtml(text)}</div>${actionHtml}`;
+      }
+      chatMessages.appendChild(div);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return div;
+    }
+
+    chatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const message = chatInput.value.trim();
+      if (!message) return;
+
+      chatInput.value = '';
+      chatInput.disabled = true;
+      chatSendBtn.disabled = true;
+
+      appendChatBubble('user', message);
+      const thinkingEl = appendChatBubble('ai', 'Thinking with Gemini...');
+      thinkingEl.classList.add('text-slate-400', 'italic');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        thinkingEl.remove();
+        appendChatBubble('ai', data.reply || 'Done.', data.actions || []);
+      } catch (err) {
+        thinkingEl.remove();
+        appendChatBubble('ai', `Unable to reach CyberShield backend (${err.message}).`);
+      } finally {
+        chatInput.disabled = false;
+        chatSendBtn.disabled = false;
+        chatInput.focus();
+      }
+    });
+
+    // =========================================================================
+    // BOOTSTRAP
+    // =========================================================================
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      applyLiveUI(false);
+      connectWebSocket();
+      requestAnimationFrame(renderFrame);
+    });
+  </script>
+</body>
+</html>

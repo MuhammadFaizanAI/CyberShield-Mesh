@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+electron/node_modules/
+electron/dist/
+dist_backend/
+release_windows/
+build/
+*.spec
+sim_intrusion.exe
+CyberShieldMesh-For-Windows.zip

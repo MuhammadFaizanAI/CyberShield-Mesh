@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CyberShield Mesh — Live Intrusion &amp; Defense Pitch Visual</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Space Grotesk', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: #050811;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    .stage-bg {
+      background:
+        radial-gradient(circle at 22% 50%, rgba(244, 63, 94, 0.08), transparent 42%),
+        radial-gradient(circle at 52% 48%, rgba(14, 165, 233, 0.12), transparent 48%),
+        radial-gradient(circle at 84% 35%, rgba(16, 185, 129, 0.08), transparent 40%);
+    }
+
+    @keyframes phoneBuzz {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      20% { transform: translate(-2px, 1px) rotate(-1.5deg); }
+      40% { transform: translate(2px, -1px) rotate(1.5deg); }
+      60% { transform: translate(-2px, -1px) rotate(-1deg); }
+      80% { transform: translate(2px, 1px) rotate(1deg); }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35); }
+      50% { box-shadow: 0 0 0 8px rgba(56, 189, 248, 0); }
+    }
+
+    .phone-buzz { animation: phoneBuzz 0.38s ease-in-out 4; }
+    .agent-pulse { animation: pulseGlow 2.4s ease-in-out infinite; }
+  </style>
+</head>
+<body class="stage-bg flex h-screen w-screen flex-col overflow-hidden">
+
+  <!-- COMPACT TOP HEADER -->
+  <header class="z-20 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/80 px-4 backdrop-blur-md">
+    <div class="flex items-center gap-2.5">
+      <span class="flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
+        <i class="fa-solid fa-shield-halved text-xs"></i>
+      </span>
+      <span class="font-display text-sm font-bold tracking-tight text-white">CyberShield Mesh</span>
+      <span class="hidden sm:inline-block rounded bg-slate-800/90 px-2 py-0.5 font-mono text-[10px] text-slate-300">
+        LIVE DEFENSE FLOW
+      </span>
+    </div>
+
+    <!-- Step Progress Pills (1 -> 5) -->
+    <div id="stepPills" class="hidden md:flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/90 px-2 py-1 font-mono text-[10px]">
+      <span data-s="1" class="step-pill rounded px-1.5 py-0.5 text-slate-400">1. Intrusion</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="2" class="step-pill rounded px-1.5 py-0.5 text-slate-400">2. AI Defend</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="3" class="step-pill rounded px-1.5 py-0.5 text-slate-400">3. Mobile Alert</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="4" class="step-pill rounded px-1.5 py-0.5 text-slate-400">4. Cut Link</span>
+      <span class="text-slate-600">&rarr;</span>
+      <span data-s="5" class="step-pill rounded px-1.5 py-0.5 text-slate-400">5. Source Blocked</span>
+    </div>
+
+    <!-- Controls: Auto Loop, Sound, Trigger Intrusion -->
+    <div class="flex items-center gap-2 text-[11px]">
+      <label class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700/80 bg-slate-900/90 px-2.5 py-1 font-medium text-slate-200 hover:border-cyan-400/50 transition">
+        <input id="autoLoopToggle" type="checkbox" checked class="h-3 w-3 rounded accent-cyan-400" />
+        <span>Auto Loop</span>
+      </label>
+
+      <button id="soundToggleBtn" type="button" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-cyan-300 hover:border-cyan-400 transition" title="Toggle Sound">
+        <i id="soundIcon" class="fa-solid fa-volume-high text-xs"></i>
+      </button>
+
+      <button id="triggerBtn" type="button" class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1 font-bold text-white shadow-md shadow-rose-600/30 hover:bg-rose-500 active:scale-95 transition">
+        <i class="fa-solid fa-play text-[10px]"></i>
+        <span id="triggerBtnLabel">Replay Sequence</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SINGLE-SCREEN STAGE -->
+  <main class="relative flex flex-1 w-full overflow-hidden">
+
+    <!-- ANIMATED WORKFLOW CANVAS (LEFT / CENTER) -->
+    <section class="relative flex-1 h-full overflow-hidden">
+      <canvas id="flowCanvas" class="block h-full w-full"></canvas>
+
+      <!-- Current Action Banner (Top-Left Floating) -->
+      <div class="pointer-events-none absolute top-3 left-4 z-10 max-w-md rounded-2xl border border-slate-800/90 bg-slate-950/80 px-3.5 py-2.5 backdrop-blur-md">
+        <div id="phaseBadge" class="font-mono text-[10px] font-bold uppercase tracking-wider text-rose-400">
+          STEP 1/5 &bull; SUSPICIOUS INCOMING ACTIVITY
+        </div>
+        <div id="phaseTitle" class="mt-0.5 font-display text-sm font-bold text-white">
+          External Source Probes Your PC
+        </div>
+        <p id="phaseDesc" class="mt-0.5 text-[11px] text-slate-300">
+          Suspicious traffic and command payloads move along the active channel toward your computer.
+        </p>
+      </div>
+
+      <!-- Mobile Phone Push Alert Card (Bottom-Left Floating) -->
+      <div id="mobileCard" class="pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-slate-800 bg-slate-950/88 p-3 backdrop-blur-md transition-all">
+        <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
+          <span class="flex items-center gap-1.5 font-bold text-cyan-300">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            MOBILE ALERT
+          </span>
+          <span id="mobileTime" class="text-slate-400">Standby</span>
+        </div>
+        <div id="mobileAlertTitle" class="mt-1 text-xs font-bold text-slate-200">
+          Waiting for threat event
+        </div>
+        <div id="mobileAlertBody" class="mt-0.5 text-[11px] leading-snug text-slate-400">
+          Push notification fires as soon as the AI agent detects intrusion activity.
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT LIVE DASHBOARD PANEL (COMPACT, ZERO SCROLL) -->
+    <aside class="z-10 flex w-72 lg:w-80 shrink-0 flex-col justify-between gap-2.5 border-l border-slate-800/90 bg-slate-950/85 p-3.5 backdrop-blur-md">
+      <div>
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+            <i class="fa-solid fa-gauge-high mr-1"></i>Live Dashboard
+          </span>
+          <span id="shieldStatusBadge" class="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
+            PROTECTED
+          </span>
+        </div>
+
+        <!-- 4 Key Live Status Cards -->
+        <div class="mt-2.5 space-y-2 text-[11px]">
+          <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2.5">
+            <div class="font-mono text-[10px] text-slate-400">ATTACKER SOURCE</div>
+            <div id="dashSource" class="mt-0.5 font-mono text-xs font-bold text-rose-300">
+              198.51.100.77 : 4444
+            </div>
+            <div id="dashSourceState" class="mt-0.5 text-[10px] text-slate-400">
+              Probing active session
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2.5">
+            <div class="font-mono text-[10px] text-slate-400">HACKER &harr; PC CONNECTION</div>
+            <div id="dashLink" class="mt-0.5 font-mono text-xs font-bold text-amber-300">
+              ESTABLISHED (MONITORED)
+            </div>
+            <div id="dashLinkSub" class="mt-0.5 text-[10px] text-slate-400">
+              AI agent inspecting payload
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2.5">
+            <div class="font-mono text-[10px] text-slate-400">SOURCE BLOCK STATUS</div>
+            <div id="dashBlock" class="mt-0.5 font-mono text-xs font-bold text-slate-300">
+              NOT BLOCKED YET
+            </div>
+            <div id="dashBlockSub" class="mt-0.5 text-[10px] text-slate-400">
+              Firewall rule queued by AI agent
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2.5">
+            <div class="font-mono text-[10px] text-slate-400">MOBILE NOTIFICATION</div>
+            <div id="dashMobile" class="mt-0.5 font-mono text-xs font-bold text-slate-300">
+              IDLE
+            </div>
+            <div id="dashMobileSub" class="mt-0.5 text-[10px] text-slate-400">
+              Synced device ready
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Compact Live Event Log (Last 3 Events Only) -->
+      <div class="rounded-xl border border-slate-800/90 bg-slate-900/60 p-2.5">
+        <div class="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          Action Feed
+        </div>
+        <div id="miniLog" class="mt-1.5 space-y-1 font-mono text-[10px] text-slate-300"></div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    // =========================================================================
+    // SINGLE LIVE SEQUENCE STATE (STEPS 1 -> 5)
+    // =========================================================================
+    const sim = {
+      step: 1,              // 1: Intrusion, 2: AI Defend, 3: Mobile Alert, 4: Cut Link, 5: Source Blocked
+      stepElapsed: 0,       // seconds in current step
+      stepDuration: 2.3,    // seconds per step
+      autoLoop: true,
+      soundOn: true,
+      time: 0,
+      packets: [],
+      alertParticles: [],
+      logs: ['System ready • Watching PC link']
+    };
+
+    const STEPS = {
+      1: {
+        badge: 'STEP 1/5 • SUSPICIOUS INCOMING ACTIVITY',
+        title: 'Hacker Source Sends Intrusion Traffic to PC',
+        desc: 'Suspicious connection and payload packets travel from the external source into your PC.',
+        statusBadge: 'INTRUSION DETECTED',
+        statusClass: 'rounded-full border border-rose-500/50 bg-rose-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-300',
+        sourceState: 'Active suspicious traffic stream',
+        linkText: 'ACTIVE & SUSPICIOUS',
+        linkClass: 'mt-0.5 font-mono text-xs font-bold text-rose-300',
+        linkSub: 'Unauthorized inbound session detected',
+        blockText: 'PENDING AGENT ACTION',
+        blockClass: 'mt-0.5 font-mono text-xs font-bold text-amber-300',
+        blockSub: 'Evaluating threat origin',
+        mobileStatus: 'QUEUED',
+        mobileClass: 'mt-0.5 font-mono text-xs font-bold text-amber-300',
+        mobileSub: 'Preparing urgent alert',
+        phoneTitle: 'Suspicious Activity Detected',
+        phoneBody: 'External source 198.51.100.77 probing PC.',
+        log: '[1] Intrusion traffic spotted from 198.51.100.77'
+      },
+      2: {
+        badge: 'STEP 2/5 • AUTONOMOUS AI AGENT DEFENDS',
+        title: 'AI Agent InterCEPTS & Activates Defense Shield',
+        desc: 'Autonomous defense engine flags the anomalous activity and locks down the defense perimeter.',
+        statusBadge: 'AI DEFENDING',
+        statusClass: 'rounded-full border border-cyan-400/50 bg-cyan-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-cyan-200',
+        sourceState: 'Flagged as malicious source',
+        linkText: 'INTERCEPTED BY AI AGENT',
+        linkClass: 'mt-0.5 font-mono text-xs font-bold text-cyan-300',
+        linkSub: 'Payload inspection & containment engaged',
+        blockText: 'PREPARING SOURCE BLOCK',
+        blockClass: 'mt-0.5 font-mono text-xs font-bold text-cyan-300',
+        blockSub: 'Isolating attacker endpoint',
+        mobileStatus: 'SENDING ALERT...',
+        mobileClass: 'mt-0.5 font-mono text-xs font-bold text-cyan-300',
+        mobileSub: 'Dispatching push notification to phone',
+        phoneTitle: 'AI Agent Engaged Defense',
+        phoneBody: 'Intercepting suspicious PC connection now.',
+        log: '[2] AI agent intercepted & activated shield'
+      },
+      3: {
+        badge: 'STEP 3/5 • ALERT SENT TO MOBILE PHONE',
+        title: 'Push Notification Delivered to Mobile Device',
+        desc: 'Real-time security alert rings on the user’s phone with threat details and live action status.',
+        statusBadge: 'MOBILE ALERT SENT',
+        statusClass: 'rounded-full border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-200',
+        sourceState: 'Reported to mobile device',
+        linkText: 'CONTAINING SESSION',
+        linkClass: 'mt-0.5 font-mono text-xs font-bold text-amber-300',
+        linkSub: 'Preparing to sever active socket',
+        blockText: 'QUEUED FOR IMMEDIATE DROP',
+        blockClass: 'mt-0.5 font-mono text-xs font-bold text-amber-300',
+        blockSub: 'Blocking source IP & port :4444',
+        mobileStatus: 'DELIVERED TO PHONE',
+        mobileClass: 'mt-0.5 font-mono text-xs font-bold text-emerald-300',
+        mobileSub: 'Push alert acknowledged on paired mobile',
+        phoneTitle: 'URGENT: PC Intrusion Blocked',
+        phoneBody: 'Disconnecting 198.51.100.77 & blocking source.',
+        log: '[3] Push notification sent to mobile phone'
+      },
+      4: {
+        badge: 'STEP 4/5 • CONNECTION DISCONNECTED',
+        title: 'Active Connection Between Hacker & PC Severed',
+        desc: 'The AI agent drops the live session between the hacker and your PC so no data can move.',
+        statusBadge: 'LINK SEVERED',
+        statusClass: 'rounded-full border border-sky-400/50 bg-sky-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-sky-200',
+        sourceState: 'Active session terminated',
+        linkText: 'DISCONNECTED (SEVERED)',
+        linkClass: 'mt-0.5 font-mono text-xs font-bold text-emerald-300',
+        linkSub: 'Hacker-to-PC socket terminated',
+        blockText: 'APPLYING SOURCE BLOCK',
+        blockClass: 'mt-0.5 font-mono text-xs font-bold text-cyan-300',
+        blockSub: 'Writing deny rule for incoming source',
+        mobileStatus: 'UPDATED: LINK CUT',
+        mobileClass: 'mt-0.5 font-mono text-xs font-bold text-emerald-300',
+        mobileSub: 'Status sync sent to mobile',
+        phoneTitle: 'Connection Disconnected',
+        phoneBody: 'Hacker link to PC severed. Blocking source.',
+        log: '[4] Cut active connection between hacker & PC'
+      },
+      5: {
+        badge: 'STEP 5/5 • INCOMING SOURCE BLOCKED',
+        title: 'Incoming Source Blocked & Dashboard Updated',
+        desc: 'The attacker source is blocked at the shield wall—incoming packets bounce off while your PC stays safe.',
+        statusBadge: 'SOURCE BLOCKED',
+        statusClass: 'rounded-full border border-emerald-500/50 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300',
+        sourceState: 'Blocked at shield wall • Zero entry',
+        linkText: 'DISCONNECTED & BLOCKED',
+        linkClass: 'mt-0.5 font-mono text-xs font-bold text-emerald-300',
+        linkSub: 'No active connection from attacker',
+        blockText: 'BLOCKED (198.51.100.77)',
+        blockClass: 'mt-0.5 font-mono text-xs font-bold text-emerald-300',
+        blockSub: 'All incoming traffic from source dropped',
+        mobileStatus: 'RESOLVED & CONFIRMED',
+        mobileClass: 'mt-0.5 font-mono text-xs font-bold text-emerald-300',
+        mobileSub: 'All-clear summary shown on phone',
+        phoneTitle: 'Source Blocked • PC Safe',
+        phoneBody: '198.51.100.77 blocked. Connection closed.',
+        log: '[5] Blocked source 198.51.100.77 & updated UI'
+      }
+    };
+
+    // Subtle synthesized sound effects (no external audio files)
+    let audioCtx = null;
+    function playStepTone(stepNum) {
+      if (!sim.soundOn) return;
+      try {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx = new Ctx();
+        }
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (stepNum === 1) {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(340, now);
+          osc.frequency.linearRampToValueAtTime(480, now + 0.16);
+          gain.gain.setValueAtTime(0.045, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+          osc.start(now); osc.stop(now + 0.19);
+        } else if (stepNum === 3) {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(660, now);
+          osc.frequency.setValueAtTime(880, now + 0.1);
+          gain.gain.setValueAtTime(0.055, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+          osc.start(now); osc.stop(now + 0.25);
+        } else if (stepNum === 4 || stepNum === 5) {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(520, now);
+          osc.frequency.exponentialRampToValueAtTime(780, now + 0.18);
+          gain.gain.setValueAtTime(0.045, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          osc.start(now); osc.stop(now + 0.21);
+        }
+      } catch (_) {}
+    }
+
+    function pushLog(msg) {
+      if (sim.logs[0] !== msg) {
+        sim.logs.unshift(msg);
+        sim.logs = sim.logs.slice(0, 3);
+      }
+    }
+
+    function applyStepUI(stepNum) {
+      const cfg = STEPS[stepNum];
+      document.getElementById('phaseBadge').textContent = cfg.badge;
+      document.getElementById('phaseTitle').textContent = cfg.title;
+      document.getElementById('phaseDesc').textContent = cfg.desc;
+
+      const badge = document.getElementById('shieldStatusBadge');
+      badge.textContent = cfg.statusBadge;
+      badge.className = cfg.statusClass;
+
+      document.getElementById('dashSourceState').textContent = cfg.sourceState;
+      document.getElementById('dashLink').textContent = cfg.linkText;
+      document.getElementById('dashLink').className = cfg.linkClass;
+      document.getElementById('dashLinkSub').textContent = cfg.linkSub;
+
+      document.getElementById('dashBlock').textContent = cfg.blockText;
+      document.getElementById('dashBlock').className = cfg.blockClass;
+      document.getElementById('dashBlockSub').textContent = cfg.blockSub;
+
+      document.getElementById('dashMobile').textContent = cfg.mobileStatus;
+      document.getElementById('dashMobile').className = cfg.mobileClass;
+      document.getElementById('dashMobileSub').textContent = cfg.mobileSub;
+
+      document.getElementById('mobileAlertTitle').textContent = cfg.phoneTitle;
+      document.getElementById('mobileAlertBody').textContent = cfg.phoneBody;
+      document.getElementById('mobileTime').textContent = stepNum >= 3 ? 'Just now' : 'Standby';
+
+      const mCard = document.getElementById('mobileCard');
+      mCard.classList.remove('phone-buzz');
+      if (stepNum === 3) {
+        void mCard.offsetWidth;
+        mCard.classList.add('phone-buzz');
+        mCard.className = 'phone-buzz pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-amber-400/70 bg-slate-950/95 p-3 backdrop-blur-md transition-all';
+      } else if (stepNum >= 4) {
+        mCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-emerald-500/50 bg-slate-950/90 p-3 backdrop-blur-md transition-all';
+      } else {
+        mCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-slate-800 bg-slate-950/88 p-3 backdrop-blur-md transition-all';
+      }
+
+      document.querySelectorAll('.step-pill').forEach(el => {
+        const s = Number(el.getAttribute('data-s'));
+        if (s === stepNum) {
+          el.className = 'step-pill rounded bg-cyan-500/25 px-1.5 py-0.5 font-bold text-cyan-200 border border-cyan-400/40';
+        } else if (s < stepNum) {
+          el.className = 'step-pill rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-300';
+        } else {
+          el.className = 'step-pill rounded px-1.5 py-0.5 text-slate-500';
+        }
+      });
+
+      pushLog(cfg.log);
+      document.getElementById('miniLog').innerHTML = sim.logs
+        .map((line, i) => `<div class="${i === 0 ? 'text-cyan-200 font-semibold' : 'text-slate-400'} truncate">${line}</div>`)
+        .join('');
+
+      playStepTone(stepNum);
+    }
+
+    function setStep(stepNum) {
+      sim.step = stepNum;
+      sim.stepElapsed = 0;
+      applyStepUI(stepNum);
+    }
+
+    function replaySequence() {
+      sim.packets = [];
+      sim.alertParticles = [];
+      sim.logs = ['Replaying live sequence...'];
+      setStep(1);
+    }
+
+    // =========================================================================
+    // CANVAS ANIMATION: ATTACKER SOURCE -> AI AGENT & PC -> MOBILE ALERT
+    // =========================================================================
+    const canvas = document.getElementById('flowCanvas');
+    const ctx = canvas.getContext('2d');
+    let lastTs = performance.now();
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(300, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(200, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawNodeBox(x, y, w, h, title, sub, borderCol, fillCol, titleCol) {
+      ctx.save();
+      ctx.fillStyle = fillCol;
+      ctx.strokeStyle = borderCol;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(x - w / 2, y - h / 2, w, h, 14);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = titleCol;
+      ctx.font = 'bold 12px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, x, y - 4);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.fillText(sub, x, y + 13);
+      ctx.restore();
+    }
+
+    function renderFrame(now) {
+      const dt = Math.min(0.08, (now - lastTs) / 1000);
+      lastTs = now;
+      sim.time += dt;
+      sim.stepElapsed += dt;
+
+      // Advance steps automatically
+      if (sim.stepElapsed >= sim.stepDuration) {
+        if (sim.step < 5) {
+          setStep(sim.step + 1);
+        } else if (sim.autoLoop) {
+          replaySequence();
+        } else {
+          sim.stepElapsed = sim.stepDuration;
+        }
+      }
+
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Key node coordinates
+      const srcX = Math.max(88, w * 0.17);
+      const srcY = h * 0.52;
+
+      const pcX = w * 0.54;
+      const pcY = h * 0.52;
+
+      const phoneX = Math.min(w - 84, w * 0.84);
+      const phoneY = Math.max(105, h * 0.24);
+
+      const isBlocked = sim.step === 5;
+      const isSevered = sim.step >= 4;
+      const isDefending = sim.step >= 2;
+
+      // 1. Connection line between Attacker Source and PC
+      ctx.save();
+      if (isSevered) {
+        ctx.setLineDash([7, 7]);
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
+        ctx.lineWidth = 2;
+      } else {
+        ctx.setLineDash([]);
+        ctx.strokeStyle = sim.step === 1 ? 'rgba(244, 63, 94, 0.55)' : 'rgba(56, 189, 248, 0.45)';
+        ctx.lineWidth = 2.5;
+      }
+      ctx.beginPath();
+      ctx.moveTo(srcX + 54, srcY);
+      ctx.lineTo(pcX - 58, pcY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Visual X cut mark when connection is disconnected (Step 4+)
+      if (isSevered) {
+        const midX = (srcX + pcX) * 0.5;
+        const midY = srcY;
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(midX - 10, midY - 10);
+        ctx.lineTo(midX + 10, midY + 10);
+        ctx.moveTo(midX + 10, midY - 10);
+        ctx.lineTo(midX - 10, midY + 10);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fda4af';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('LINK CUT', midX, midY - 16);
+      }
+
+      // Shield barrier line when source is blocked (Step 5)
+      const wallX = pcX - 88;
+      if (isBlocked) {
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(wallX, pcY - 46);
+        ctx.lineTo(wallX, pcY + 46);
+        ctx.stroke();
+
+        ctx.fillStyle = '#6ee7b7';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('BLOCKED', wallX, pcY - 54);
+      }
+
+      // 2. Notification path from AI Agent/PC to Mobile Phone
+      ctx.strokeStyle = sim.step >= 3 ? 'rgba(52, 211, 153, 0.55)' : 'rgba(148, 163, 184, 0.22)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(pcX + 24, pcY - 42);
+      ctx.quadraticCurveTo(pcX + 40, phoneY + 20, phoneX - 44, phoneY + 8);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 3. Spawn & animate incoming/blocked packets
+      const spawnRate = sim.step === 1 ? 0.09 : (isBlocked ? 0.07 : 0.03);
+      if (Math.random() < spawnRate && sim.packets.length < 12) {
+        sim.packets.push({
+          t: 0,
+          speed: (isBlocked ? 0.022 : 0.017) + Math.random() * 0.006,
+          yOffset: (Math.random() - 0.5) * 14,
+          bounced: false
+        });
+      }
+
+      for (let i = sim.packets.length - 1; i >= 0; i--) {
+        const p = sim.packets[i];
+        p.t += p.speed;
+
+        const startX = srcX + 56;
+        const endX = pcX - 60;
+        const bounceX = wallX - 6;
+
+        let px = startX + (endX - startX) * p.t;
+        let py = srcY + p.yOffset + Math.sin(sim.time * 6 + i) * 2;
+        let col = sim.step === 1 ? '#fb7185' : '#38bdf8';
+
+        if (isBlocked && px >= bounceX) {
+          // Bounce back off blocked shield wall
+          const over = px - bounceX;
+          px = bounceX - over * 1.4;
+          py = srcY + p.yOffset - over * 0.7;
+          col = '#34d399';
+        } else if (isSevered && p.t > 0.45) {
+          // Dropped packets fade out at severed link
+          col = '#94a3b8';
+        }
+
+        ctx.beginPath();
+        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+
+        if (p.t >= 1 || (isBlocked && px < startX - 10)) {
+          sim.packets.splice(i, 1);
+        }
+      }
+
+      // 4. Spawn & animate mobile push alert pulse (Step 3+)
+      if (sim.step >= 3 && Math.random() < 0.08 && sim.alertParticles.length < 6) {
+        sim.alertParticles.push({ t: 0 });
+      }
+      for (let i = sim.alertParticles.length - 1; i >= 0; i--) {
+        const a = sim.alertParticles[i];
+        a.t += 0.025;
+        const u = Math.min(1, a.t);
+        const ax = (1 - u) * (1 - u) * (pcX + 24) + 2 * (1 - u) * u * (pcX + 40) + u * u * (phoneX - 44);
+        const ay = (1 - u) * (1 - u) * (pcY - 42) + 2 * (1 - u) * u * (phoneY + 20) + u * u * (phoneY + 8);
+
+        ctx.beginPath();
+        ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#34d399';
+        ctx.fill();
+
+        if (a.t >= 1) sim.alertParticles.splice(i, 1);
+      }
+
+      // 5. Draw Attacker Source Node
+      drawNodeBox(
+        srcX, srcY, 108, 56,
+        'ATTACKER SOURCE',
+        isBlocked ? 'BLOCKED IP' : '198.51.100.77',
+        isBlocked ? '#34d399' : '#fb7185',
+        isBlocked ? 'rgba(6, 78, 59, 0.35)' : 'rgba(136, 19, 55, 0.32)',
+        isBlocked ? '#a7f3d0' : '#fecdd3'
+      );
+
+      // 6. Draw PC + AI Agent Shield Node
+      drawNodeBox(
+        pcX, pcY, 124, 66,
+        'YOUR PC + AI AGENT',
+        isDefending ? 'SHIELD ACTIVE' : 'UNDER PROBE',
+        isDefending ? '#38bdf8' : '#fb7185',
+        isDefending ? 'rgba(12, 74, 110, 0.42)' : 'rgba(15, 23, 42, 0.9)',
+        '#f8fafc'
+      );
+
+      // 7. Draw Mobile Device Node
+      drawNodeBox(
+        phoneX, phoneY, 112, 54,
+        'MOBILE PHONE',
+        sim.step >= 3 ? 'ALERT SENT' : 'STANDBY',
+        sim.step >= 3 ? '#34d399' : '#475569',
+        sim.step >= 3 ? 'rgba(6, 78, 59, 0.35)' : 'rgba(15, 23, 42, 0.88)',
+        sim.step >= 3 ? '#a7f3d0' : '#e2e8f0'
+      );
+
+      requestAnimationFrame(renderFrame);
+    }
+
+    // Controls wiring
+    document.getElementById('triggerBtn').addEventListener('click', replaySequence);
+    document.getElementById('autoLoopToggle').addEventListener('change', (e) => {
+      sim.autoLoop = e.target.checked;
+      if (sim.autoLoop && sim.step === 5 && sim.stepElapsed >= sim.stepDuration) {
+        replaySequence();
+      }
+    });
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      sim.soundOn = !sim.soundOn;
+      document.getElementById('soundIcon').className = sim.soundOn
+        ? 'fa-solid fa-volume-high text-xs'
+        : 'fa-solid fa-volume-xmark text-xs text-slate-500';
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+    window.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      setStep(1);
+      requestAnimationFrame(renderFrame);
+    });
+  </script>
+</body>
+</html>
