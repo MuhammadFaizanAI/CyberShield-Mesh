@@ -1,7 +1,7 @@
 """Configuration loader for CyberShield Mesh.
 
-Reads environment variables from `.env` with safe defaults across both
-development mode (`python -m uvicorn`) and frozen PyInstaller `.exe` mode.
+Reads environment variables from `.env` across both development mode and frozen
+PyInstaller `.exe` builds, and supports saving Google OAuth credentials cleanly.
 """
 
 from __future__ import annotations
@@ -14,8 +14,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-def _resolve_roots() -> tuple[Path, Path]:
-    """Return (project_root, frontend_index_path) for dev or frozen .exe builds."""
+def _resolve_paths() -> tuple[Path, Path, Path, Path]:
+    """Return (project_root, frontend_index, data_dir, env_file_path)."""
     if getattr(sys, "frozen", False):
         exe_dir = Path(sys.executable).resolve().parent
         meipass = Path(getattr(sys, "_MEIPASS", exe_dir))
@@ -26,18 +26,25 @@ def _resolve_roots() -> tuple[Path, Path]:
             exe_dir.parent.parent / ".env",
             meipass / ".env",
         ]
+        chosen_env = exe_dir / ".env"
         for env_file in candidate_env_paths:
             if env_file.exists():
                 load_dotenv(env_file, override=False)
+                chosen_env = env_file
+                break
 
+        frontend_idx = meipass / "frontend" / "index.html"
         for idx in (
             meipass / "frontend" / "index.html",
             exe_dir / "frontend" / "index.html",
             exe_dir.parent / "frontend" / "index.html",
         ):
             if idx.exists():
-                return exe_dir, idx
-        return exe_dir, meipass / "frontend" / "index.html"
+                frontend_idx = idx
+                break
+
+        data_dir = exe_dir / "data"
+        return exe_dir, frontend_idx, data_dir, chosen_env
 
     project_root = Path(__file__).resolve().parent.parent
     env_path = project_root / ".env"
@@ -45,10 +52,15 @@ def _resolve_roots() -> tuple[Path, Path]:
         load_dotenv(env_path, override=False)
     else:
         load_dotenv(override=False)
-    return project_root, project_root / "frontend" / "index.html"
+    return (
+        project_root,
+        project_root / "frontend" / "index.html",
+        project_root / "backend" / "data",
+        env_path,
+    )
 
 
-PROJECT_ROOT, FRONTEND_INDEX = _resolve_roots()
+PROJECT_ROOT, FRONTEND_INDEX, DATA_DIR, ENV_FILE_PATH = _resolve_paths()
 
 
 def _parse_watch_ports(raw: str) -> set[int]:
@@ -80,10 +92,12 @@ def _parse_float(raw: str, default: float) -> float:
         return default
 
 
-@dataclass(frozen=True)
+@dataclass
 class Settings:
     project_root: Path = PROJECT_ROOT
     frontend_index: Path = FRONTEND_INDEX
+    data_dir: Path = DATA_DIR
+    env_file: Path = ENV_FILE_PATH
 
     gemini_api_key: str = field(
         default_factory=lambda: os.getenv("GEMINI_API_KEY", "").strip()
@@ -91,6 +105,18 @@ class Settings:
     gemini_model: str = field(
         default_factory=lambda: os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
         or "gemini-3.5-flash-lite"
+    )
+    google_client_id: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    )
+    google_client_secret: str = field(
+        default_factory=lambda: os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+    )
+    google_redirect_uri: str = field(
+        default_factory=lambda: os.getenv(
+            "GOOGLE_REDIRECT_URI", "http://127.0.0.1:8000/auth/google/callback"
+        ).strip()
+        or "http://127.0.0.1:8000/auth/google/callback"
     )
     ntfy_topic: str = field(
         default_factory=lambda: os.getenv("NTFY_TOPIC", "cybershield-mesh-alerts-2026").strip()
@@ -138,6 +164,55 @@ class Settings:
     def has_valid_gemini_key(self) -> bool:
         key = self.gemini_api_key
         return bool(key) and key != "your_gemini_api_key_here"
+
+    @property
+    def has_google_oauth_config(self) -> bool:
+        cid = self.google_client_id
+        csec = self.google_client_secret
+        return (
+            bool(cid)
+            and bool(csec)
+            and "your_google_client_id" not in cid.lower()
+            and "your_google_client_secret" not in csec.lower()
+        )
+
+    def update_google_oauth(self, client_id: str, client_secret: str) -> None:
+        """Persist Google OAuth client credentials to `.env` and update runtime settings."""
+        clean_id = client_id.strip()
+        clean_secret = client_secret.strip()
+        self.google_client_id = clean_id
+        self.google_client_secret = clean_secret
+        os.environ["GOOGLE_CLIENT_ID"] = clean_id
+        os.environ["GOOGLE_CLIENT_SECRET"] = clean_secret
+
+        updates = {
+            "GOOGLE_CLIENT_ID": clean_id,
+            "GOOGLE_CLIENT_SECRET": clean_secret,
+            "GOOGLE_REDIRECT_URI": self.google_redirect_uri,
+        }
+        existing_lines: list[str] = []
+        if self.env_file.exists():
+            existing_lines = self.env_file.read_text(encoding="utf-8").splitlines()
+
+        seen: set[str] = set()
+        new_lines: list[str] = []
+        for line in existing_lines:
+            stripped = line.strip()
+            replaced = False
+            for k, v in updates.items():
+                if stripped.startswith(f"{k}="):
+                    new_lines.append(f"{k}={v}")
+                    seen.add(k)
+                    replaced = True
+                    break
+            if not replaced:
+                new_lines.append(line)
+
+        for k, v in updates.items():
+            if k not in seen:
+                new_lines.append(f"{k}={v}")
+
+        self.env_file.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 settings = Settings()

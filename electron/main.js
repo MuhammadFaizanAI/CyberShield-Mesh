@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, Menu, Tray, dialog, nativeImage } = require('electron');
+const { app, BrowserWindow, Menu, Tray, dialog, nativeImage, shell } = require('electron');
 const { spawn, execFileSync } = require('child_process');
 const fs = require('fs');
 const http = require('http');
@@ -236,6 +236,15 @@ function createMainWindow() {
   });
 
   mainWindow.loadURL(APP_URL);
+
+  // Open external links (such as Google OAuth 2.0 consent) in the real system browser
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url) && !url.startsWith(APP_URL)) {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    }
+    return { action: 'allow' };
+  });
 
   mainWindow.once('ready-to-show', () => {
     if (mainWindow) mainWindow.show();

@@ -2,6 +2,7 @@
 .venv/
 __pycache__/
 *.pyc
+backend/data/
 electron/node_modules/
 electron/dist/
 dist_backend/

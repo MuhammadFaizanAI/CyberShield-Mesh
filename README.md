@@ -1,132 +1,75 @@
 # CyberShield Mesh
 
-**Autonomous AI Endpoint Intrusion Defense** built for the **Google AI Agent-a-thon 2026** (GDG on Campus, FAST CFD Campus).
-
-CyberShield Mesh closes three real-world blind spots in built-in Windows Security:
-1. **Outbound Traffic Blind Spot:** Windows Firewall permits almost all outbound connections by default.
-2. **Signature-Free Attacks:** Custom scripts or compiled binaries bypass signature-based antivirus completely.
-3. **No Remote Visibility or Autonomous Containment:** CyberShield Mesh uses **Google Gemini (`google-genai`)** with real Function Calling tools to alert your phone (`ntfy.sh`), terminate the offending process (`psutil`), and apply bidirectional Windows Firewall blocks (`netsh`) in seconds.
+**Autonomous Gemini-Powered Endpoint Security Console** with **Sign in with Google**, real-time **Gmail API + ntfy intrusion alerts**, live OS socket telemetry (`psutil`), SQLite persistence, and autonomous Windows/Linux firewall containment.
 
 ---
 
-## Project Structure
+## Key Capabilities
 
-```text
-.
-├── .env.example                 # Environment template
-├── requirements.txt             # FastAPI, Uvicorn, psutil, requests, dotenv, google-genai
-├── README.md                    # Setup & 3-minute live demo runbook
-├── backend/
-│   ├── __init__.py
-│   ├── config.py                # Safe .env loader with defaults
-│   ├── state.py                 # Thread-safe incident store + WebSocket ConnectionManager
-│   ├── tools.py                 # Real OS/API tools (ntfy.sh, psutil kill, netsh block/unblock)
-│   ├── agent.py                 # Google Gemini autonomous defense agent + interactive chat
-│   ├── monitor.py               # 1-second background psutil TCP socket monitor
-│   └── main.py                  # FastAPI server (/, /health, /ws, /api/chat, /api/simulate, /api/reset)
-├── frontend/
-│   └── index.html               # Single-screen live WebSocket cyber dashboard + AI chat
-├── electron/
-│   ├── package.json             # Electron desktop manifest
-│   └── main.js                  # Spawns FastAPI, polls /health, opens dark window + System Tray
-└── demo_attack/
-    ├── sim_intrusion.py         # Harmless Python outbound TCP beacon (:4444)
-    └── sim_intrusion.cpp        # Optional native C++ WinSock2 outbound beacon
-```
+- **Google OAuth 2.0 Account Login:** Users sign into the desktop console with their real Google Account (`openid`, `email`, `profile`, `gmail.send`), automatically binding this PC to their inbox with refreshable local sessions in SQLite (`backend/data/cybershield.db`).
+- **Real-Time Gmail + Optional ntfy Alerts:** When Gemini detects an unauthorized outbound connection, CyberShield Mesh sends a formatted HTML intrusion alert directly to the user's own Gmail inbox (triggering an instant phone notification) and optionally pushes to `ntfy.sh`.
+- **Real Endpoint Security Console (Zero Fake Simulation):**
+  - **Live Monitor:** Real-time `psutil` table of active `ESTABLISHED` outbound TCP connections with risk classification and manual **Kill PID** / **Block IP** controls.
+  - **Threats & Incidents:** Persisted SQLite history of every intrusion, Gemini's reasoning, Gmail delivery ID, process termination, and firewall rule state.
+  - **Firewall & Whitelist:** Active inbound+outbound OS firewall blocks (`netsh` on Windows Admin / `iptables` on Linux root), manual block/unblock, and a Trusted IP Whitelist.
+  - **AI Security Copilot:** Conversational Gemini assistant with live tool execution (`unblock_ip_firewall`, `block_ip_firewall`, `kill_process`, `send_user_alert`).
+  - **Account & Settings:** Connected Google profile, **Send Test Alert to My Gmail**, Autonomous Mode toggle, Watch Ports, and Suspicious Binaries editor.
 
 ---
 
-## 1. Python Backend Setup
+## 1. Google Cloud OAuth 2.0 Setup (1 Minute)
 
-From the project root:
+To enable **Sign in with Google** and **Gmail API Alerts**:
+1. Open [Google Cloud Console → APIs & Services → Library](https://console.cloud.google.com/apis/library) and enable **Gmail API**.
+2. Open **APIs & Services → OAuth consent screen** (External, add your Gmail under **Test users**).
+3. Open **APIs & Services → Credentials → Create Credentials → OAuth client ID → Web application**.
+4. Under **Authorized redirect URIs**, add:
+   ```text
+   http://127.0.0.1:8000/auth/google/callback
+   ```
+5. Copy the **Client ID** and **Client Secret** — you can either paste them into `.env` (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) or paste them directly inside the app's **Sign-In setup panel**.
 
+---
+
+## 2. Quick Start
+
+### Python Dependencies & `.env`
 ```bash
 pip install -r requirements.txt
+cp .env.example .env   # Windows PowerShell: Copy-Item .env.example .env
 ```
+Set `GEMINI_API_KEY` (and optionally `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`) in `.env`.
 
-Create your `.env` file from `.env.example`:
-
-- **Windows PowerShell:**
-  ```powershell
-  Copy-Item .env.example .env
-  ```
-- **Linux / macOS:**
+### Run on Ubuntu / Linux
+- **Browser Console:**
   ```bash
-  cp .env.example .env
+  .venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+  ```
+  Open `http://127.0.0.1:8000/`.
+- **Electron Desktop App:**
+  ```bash
+  cd electron && npm install
+  CYBERSHIELD_PYTHON=/home/faizan/CyberFieldMesh/.venv/bin/python npx electron --no-sandbox .
   ```
 
-Edit `.env` and set:
-- `GEMINI_API_KEY` — your Google AI Studio API key
-- `GEMINI_MODEL` — defaults to `gemini-3.5-flash-lite`
-- `NTFY_TOPIC` — unique topic name (install the free **ntfy** mobile app and subscribe to this exact topic)
-- `WATCH_PORTS` — defaults to `4444,1337,9001,5555`
-- `DEMO_TARGET_IP` — attacker PC IP (default `10.100.5.67`)
-
----
-
-## 2. Electron Desktop App Setup
-
-```bash
-cd electron
-npm install
-```
-
----
-
-## 3. Launch CyberShield Mesh (Administrator Required for Real Firewall Rules)
-
-On Windows 10/11, open **PowerShell or Command Prompt as Administrator**, then run:
-
+### Windows 10/11 — Clone & One-Click Install (Recommended)
 ```powershell
-cd electron
-npm start
+git clone https://github.com/MuhammadFaizanAI/CyberShield-Mesh.git
+cd CyberShield-Mesh
+.\INSTALL_WINDOWS.bat
 ```
+What `INSTALL_WINDOWS.bat` does automatically:
+1. Creates an isolated `.venv` and installs all Python dependencies (`requirements.txt`).
+2. Installs Electron (`electron/node_modules`).
+3. Prompts for your `GEMINI_API_KEY` (saves to `.env`).
+4. Creates a **CyberShield Mesh** shortcut on your Windows Desktop and launches the app as **Administrator** (UAC) so real Windows Firewall rules work immediately.
+5. Sign in with your **Google Account** right on the app's welcome screen to activate real Gmail alerts.
 
-What happens automatically:
-- Electron spawns `python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000`.
-- Polls `http://127.0.0.1:8000/health` until ready.
-- Opens the dark `1280x800` CyberShield Mesh live dashboard and adds a **System Tray** shield icon (`Show CyberShield` / `Quit`).
-- Quitting cleanly terminates the Python backend process tree.
-
-> **Standalone browser mode (without Electron):**
-> ```bash
-> python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-> ```
-> Then open `http://127.0.0.1:8000/`.
->
-> *(If launched without Administrator privileges on Windows, CyberShield Mesh will never crash — it logs `[SIMULATED BLOCK - RUN AS ADMIN]` cleanly.)*
+*(Optional: run `BUILD_WINDOWS_EXES.bat` if you also want standalone portable `.exe` files in `release_windows\`.)*
 
 ---
 
-## 4. 3-Minute Live Two-PC Demo Runbook
-
-### Preparation
-1. **Attacker PC (Ubuntu Linux, `10.100.5.67`):** Start the TCP listener:
-   ```bash
-   ncat -lvnp 4444
-   ```
-2. **Phone:** Open the **ntfy** app subscribed to your `NTFY_TOPIC`.
-3. **Target PC (Windows 10/11, Administrator terminal):** Launch CyberShield Mesh (`cd electron && npm start`). Confirm the dashboard displays **PROTECTED** and **LIVE WS**.
-
-### Live Demo Flow
-1. **Trigger Real Outbound Exfiltration** on Windows (in a separate terminal):
-   ```powershell
-   python demo_attack/sim_intrusion.py
-   ```
-   *(Optional native C++ binary version to show signature-free binary detection:)*
-   ```powershell
-   g++ demo_attack/sim_intrusion.cpp -o sim_intrusion.exe -lws2_32
-   .\sim_intrusion.exe 10.100.5.67 4444
-   ```
-2. **Watch Autonomous Defense Live (Steps 1 → 5):**
-   - **Step 1 (Intrusion Detected):** `monitor.py` spots the `ESTABLISHED` TCP connection to `10.100.5.67:4444` with real PID and process name.
-   - **Step 2 (Gemini AI Defending):** Gemini evaluates the live telemetry and decides to invoke containment tools.
-   - **Step 3 (Mobile Alert Sent):** Your phone buzzes with the `ntfy.sh` push notification; the dashboard Mobile Alert card buzzes in sync.
-   - **Step 4 (Link Severed):** `kill_process` terminates `sim_intrusion.py` — the Ubuntu `ncat` stream stops immediately.
-   - **Step 5 (Source Blocked):** `block_ip_firewall` adds `CyberShield_Block_Out_10.100.5.67` and `CyberShield_Block_In_10.100.5.67` in Windows Firewall.
-3. **Interactive Gemini Chat Demo (Right Sidebar):**
-   - Ask: `Why did you block 10.100.5.67?` → Gemini cites the exact process, PID, port, and timestamp from incident memory.
-   - Command: `Unblock 10.100.5.67, that's my test server.` → Gemini calls `unblock_ip_firewall("10.100.5.67")` live, removes the Windows Firewall rules, and updates the dashboard back to **PROTECTED**.
-4. **Backup / Reset Buttons (Header):**
-   - **Simulate Attack:** If venue Wi-Fi or Ubuntu has issues, click **Simulate Attack** to run the real Gemini agent + `ntfy.sh` push + full Step 1 → 5 visual flow safely.
-   - **Reset / Unblock:** Deletes all `CyberShield_Block_*` Windows Firewall rules and resets dashboard state between judge demos.
+## 3. Live Two-PC Intrusion Test
+1. **Attacker PC (Ubuntu, `10.100.5.67`):** `ncat -lvnp 4444`
+2. **Target PC (Windows Admin):** Launch CyberShield Mesh, sign in with Google, and verify **Send Test Alert to My Gmail** in **Account & Settings**.
+3. Run `python demo_attack/sim_intrusion.py` (or `sim_intrusion.exe`) on Windows — CyberShield detects the real outbound TCP socket, emails your Google inbox immediately, terminates the process, and blocks `10.100.5.67` in Windows Firewall.

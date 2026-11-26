@@ -1,7 +1,8 @@
-"""Google Gemini Autonomous Defense Agent & Interactive Security Chat.
+"""Google Gemini Autonomous Endpoint Defense Agent & Security Copilot.
 
 Uses the official `google-genai` SDK (`from google import genai`) with Function
-Calling bound directly to `backend/tools.py`.
+Calling wired directly to real alerting (Gmail API + optional ntfy) and OS
+containment tools (`kill_process`, `block_ip_firewall`, `unblock_ip_firewall`).
 """
 
 from __future__ import annotations
@@ -10,38 +11,42 @@ import asyncio
 import json
 import logging
 import re
-import time
 from typing import Any, Optional
 
 from google import genai
 from google.genai import types
 
+from backend.auth import get_current_user
 from backend.config import settings
+from backend.db import db
 from backend.state import state, ws_manager
 from backend.tools import (
     block_ip_firewall,
     kill_process,
-    send_mobile_alert,
+    send_user_alert,
     unblock_ip_firewall,
 )
 
 logger = logging.getLogger("cybershield.agent")
 
 DEFENSE_SYSTEM_PROMPT = (
-    "You are CyberShield Mesh, an autonomous endpoint defense AI. "
-    "Evaluate the suspicious outbound connection. If it appears to be unauthorized "
-    "data exfiltration, a reverse shell, or a suspicious non-whitelisted connection, "
-    "you MUST call `send_mobile_alert`, `kill_process`, and `block_ip_firewall` in order, "
-    "then return a concise 2-sentence plain-English explanation of what you stopped and why."
+    "You are CyberShield Mesh, an autonomous endpoint defense AI protecting a user's PC. "
+    "Evaluate the live outbound connection telemetry carefully. If it appears to be "
+    "unauthorized data exfiltration, a reverse shell, or a suspicious non-whitelisted "
+    "connection, you MUST call `send_user_alert`, `kill_process`, and `block_ip_firewall` "
+    "in that exact order, then return a concise 2-sentence plain-English explanation of "
+    "what you stopped and why."
 )
 
-CHAT_SYSTEM_PROMPT = (
-    "You are CyberShield Mesh, an autonomous endpoint defense AI assistant embedded in "
-    "the live security dashboard. Answer operator questions concisely (2-3 sentences max) "
-    "using the provided live incident memory. "
-    "If the operator asks to unblock an IP (e.g. a test server or false positive), call "
-    "`unblock_ip_firewall(ip)` immediately and confirm. "
-    "If the operator asks to block an IP, call `block_ip_firewall(ip)` immediately and confirm."
+COPILOT_SYSTEM_PROMPT = (
+    "You are CyberShield Mesh AI Security Copilot embedded in a live endpoint security console. "
+    "Answer the operator's security questions clearly and concisely (2-4 sentences) using the "
+    "live endpoint telemetry, signed-in Google account status, blocked IPs, and persisted incident "
+    "history provided. "
+    "You have real tools to unblock IPs (`unblock_ip_firewall`), block IPs (`block_ip_firewall`), "
+    "terminate a process (`kill_process`), or send an alert (`send_user_alert`). "
+    "Whenever the operator explicitly asks you to block, unblock, or kill a target, invoke the "
+    "appropriate tool immediately and confirm the exact result."
 )
 
 _client: Optional[genai.Client] = None
@@ -56,56 +61,60 @@ def _get_client() -> Optional[genai.Client]:
     return _client
 
 
-def _run_defense_sync(event: dict[str, Any]) -> dict[str, Any]:
-    """Execute Gemini autonomous reasoning & tool calling in a worker thread."""
+def _run_defense_sync(event: dict[str, Any], incident_id: int) -> dict[str, Any]:
     remote_ip = str(event.get("remote_ip", ""))
     remote_port = int(event.get("remote_port", 0) or 0)
     local_port = int(event.get("local_port", 0) or 0)
     pid = int(event.get("pid", 0) or 0)
     process_name = str(event.get("process_name", "unknown"))
     timestamp = str(event.get("timestamp", ""))
+    trigger_reason = str(event.get("trigger_reason", ""))
 
+    state.set_active_incident_id(incident_id)
     actions_taken: list[dict[str, Any]] = []
     called_names: set[str] = set()
 
-    def _traced_send_mobile_alert(ip: str, process_name: str, reason: str) -> dict[str, Any]:
-        """Send an urgent push notification to the user's phone via ntfy.sh."""
-        res = send_mobile_alert(ip=ip, process_name=process_name, reason=reason)
-        called_names.add("send_mobile_alert")
-        actions_taken.append({"tool": "send_mobile_alert", "result": res})
-        time.sleep(0.35)
+    def _tool_send_user_alert(ip: str, process_name: str, reason: str) -> dict[str, Any]:
+        """Send an urgent security alert to the signed-in user's Google email and optional ntfy push."""
+        res = send_user_alert(ip=ip, process_name=process_name, reason=reason)
+        called_names.add("send_user_alert")
+        actions_taken.append({"tool": "send_user_alert", "ip": ip, "result": res})
         return res
 
-    def _traced_kill_process(pid: int) -> dict[str, Any]:
-        """Terminate a suspicious local process by PID to sever its active connection."""
+    def _tool_kill_process(pid: int) -> dict[str, Any]:
+        """Terminate a suspicious local process by PID to immediately sever its live connection."""
         res = kill_process(pid=pid)
         called_names.add("kill_process")
-        actions_taken.append({"tool": "kill_process", "result": res})
-        time.sleep(0.35)
+        actions_taken.append({"tool": "kill_process", "pid": pid, "result": res})
         return res
 
-    def _traced_block_ip_firewall(ip: str) -> dict[str, Any]:
-        """Block an external IP address in both outbound and inbound Windows Firewall rules."""
-        res = block_ip_firewall(ip=ip)
+    def _tool_block_ip_firewall(ip: str) -> dict[str, Any]:
+        """Block an external IP address bidirectionally (outbound + inbound) in the OS firewall."""
+        res = block_ip_firewall(
+            ip=ip,
+            reason=f"Autonomous Gemini defense ({process_name} -> {remote_ip}:{remote_port})",
+            process_name=process_name,
+        )
         called_names.add("block_ip_firewall")
-        actions_taken.append({"tool": "block_ip_firewall", "result": res})
+        actions_taken.append({"tool": "block_ip_firewall", "ip": ip, "result": res})
         return res
 
-    # Preserve canonical tool names for Gemini function declarations
-    _traced_send_mobile_alert.__name__ = "send_mobile_alert"
-    _traced_kill_process.__name__ = "kill_process"
-    _traced_block_ip_firewall.__name__ = "block_ip_firewall"
+    _tool_send_user_alert.__name__ = "send_user_alert"
+    _tool_kill_process.__name__ = "kill_process"
+    _tool_block_ip_firewall.__name__ = "block_ip_firewall"
 
+    user = get_current_user()
     telemetry_prompt = (
-        "Live outbound socket alert from CyberShield endpoint sensor:\n"
+        "Live outbound TCP socket alert from CyberShield endpoint sensor:\n"
         f"- remote_ip: {remote_ip}\n"
         f"- remote_port: {remote_port}\n"
         f"- local_port: {local_port}\n"
         f"- pid: {pid}\n"
         f"- process_name: {process_name}\n"
+        f"- trigger_reason: {trigger_reason}\n"
         f"- timestamp: {timestamp}\n"
-        f"- watch_ports: {sorted(settings.watch_ports)}\n\n"
-        "Assess this connection now and execute containment tools if malicious."
+        f"- signed_in_owner_email: {user['email'] if user else 'not_signed_in'}\n\n"
+        "Assess this live outbound connection now and execute containment tools if malicious."
     )
 
     ai_summary = ""
@@ -120,9 +129,9 @@ def _run_defense_sync(event: dict[str, Any]) -> dict[str, Any]:
                 config=types.GenerateContentConfig(
                     system_instruction=DEFENSE_SYSTEM_PROMPT,
                     tools=[
-                        _traced_send_mobile_alert,
-                        _traced_kill_process,
-                        _traced_block_ip_firewall,
+                        _tool_send_user_alert,
+                        _tool_kill_process,
+                        _tool_block_ip_firewall,
                     ],
                     temperature=0.1,
                 ),
@@ -130,55 +139,44 @@ def _run_defense_sync(event: dict[str, Any]) -> dict[str, Any]:
             used_gemini = True
             ai_summary = (response.text or "").strip()
         except Exception as exc:
-            logger.error("Gemini analyze_and_defend error (activating failsafe): %s", exc)
-            ai_summary = ""
+            logger.error("Gemini analyze_and_defend error (running failsafe): %s", exc)
 
-    # Guaranteed failsafe so a missing key or transient API hiccup never stalls the live demo
     if not used_gemini:
         reason = (
             f"Unauthorized outbound TCP connection from {process_name} (PID {pid}) "
             f"to non-whitelisted peer {remote_ip}:{remote_port}."
         )
-        _traced_send_mobile_alert(remote_ip, process_name, reason)
-        _traced_kill_process(pid)
-        _traced_block_ip_firewall(remote_ip)
+        _tool_send_user_alert(remote_ip, process_name, reason)
+        _tool_kill_process(pid)
+        _tool_block_ip_firewall(remote_ip)
         ai_summary = (
-            f"Stopped suspicious outbound exfiltration from {process_name} (PID {pid}) "
-            f"to {remote_ip}:{remote_port}. Sent a mobile alert, terminated the process, "
-            f"and applied bidirectional firewall blocks on {remote_ip}."
+            f"Stopped unauthorized outbound connection from {process_name} (PID {pid}) "
+            f"to {remote_ip}:{remote_port}. Dispatched an alert, terminated the process, "
+            f"and applied bidirectional firewall rules on {remote_ip}."
         )
     elif not ai_summary:
         ai_summary = (
-            f"CyberShield Mesh intercepted suspicious outbound traffic from {process_name} "
-            f"(PID {pid}) to {remote_ip}:{remote_port} and completed autonomous containment."
+            f"Intercepted suspicious outbound connection from {process_name} (PID {pid}) "
+            f"to {remote_ip}:{remote_port} and executed autonomous containment."
         )
 
-    state.update_latest_incident(
-        ip=remote_ip,
+    final_status = "BLOCKED" if "block_ip_firewall" in called_names else "CONTAINED"
+    updated = db.update_incident(
+        incident_id,
         ai_summary=ai_summary,
-        status="BLOCKED" if "block_ip_firewall" in called_names else "CONTAINED",
+        status=final_status,
     )
+    state.set_active_incident_id(None)
+    state.set_protection_status("ARMED")
 
-    final_step = 5 if "block_ip_firewall" in called_names else max(
-        2, int(state.get_snapshot().get("step", 2))
+    ws_manager.emit_activity(
+        "success",
+        f"Gemini AI containment finished for {remote_ip}:{remote_port} — {ai_summary[:120]}",
     )
-    ws_manager.emit_event(
-        step=final_step,
-        status="SOURCE BLOCKED" if final_step == 5 else "AI DEFENDING",
-        ip=remote_ip,
-        port=remote_port,
-        pid=pid,
-        process_name=process_name,
-        ai_summary=ai_summary,
-        log_entry=f"[AI] {ai_summary[:110]}",
-        extra={
-            "used_gemini": used_gemini,
-            "model": settings.gemini_model,
-            "actions_taken": [a["tool"] for a in actions_taken],
-        },
-    )
+    ws_manager.emit_incident_update(updated)
 
     return {
+        "incident_id": incident_id,
         "used_gemini": used_gemini,
         "model": settings.gemini_model,
         "ai_summary": ai_summary,
@@ -186,63 +184,76 @@ def _run_defense_sync(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def analyze_and_defend(event: dict[str, Any]) -> dict[str, Any]:
-    """Broadcast Step 2 (AI Agent Defending) and run Gemini autonomous containment."""
+async def analyze_and_defend(event: dict[str, Any], incident_id: int) -> dict[str, Any]:
+    """Run Gemini autonomous threat evaluation & containment in a background thread."""
     remote_ip = str(event.get("remote_ip", ""))
     remote_port = int(event.get("remote_port", 0) or 0)
     pid = int(event.get("pid", 0) or 0)
     process_name = str(event.get("process_name", "unknown"))
 
-    ws_manager.emit_event(
-        step=2,
-        status="AI DEFENDING",
-        ip=remote_ip,
-        port=remote_port,
-        pid=pid,
-        process_name=process_name,
-        ai_summary=f"Gemini ({settings.gemini_model}) analyzing {process_name} -> {remote_ip}:{remote_port}...",
-        log_entry=f"[2] Gemini AI analyzing {process_name} (PID {pid}) -> {remote_ip}:{remote_port}",
+    state.set_protection_status("CONTAINING")
+    updated = db.update_incident(incident_id, status="ANALYZING")
+    ws_manager.emit_activity(
+        "warn",
+        f"Gemini ({settings.gemini_model}) analyzing {process_name} (PID {pid}) -> {remote_ip}:{remote_port}...",
     )
+    ws_manager.emit_incident_update(updated)
 
-    # Brief beat so Step 2 animates visibly on stage before Step 3 fires
-    await asyncio.sleep(0.35)
-    return await asyncio.to_thread(_run_defense_sync, event)
+    return await asyncio.to_thread(_run_defense_sync, event, incident_id)
 
 
 def _run_chat_sync(user_message: str) -> dict[str, Any]:
-    """Handle interactive dashboard chat with incident memory and live firewall tools."""
-    recent_incidents = state.get_recent_incidents(limit=10)
-    blocked_ips = state.get_blocked_ips()
-    killed_pids = state.get_killed_pids()
+    recent_incidents = db.list_incidents(limit=15)
+    blocked_ips = db.list_blocked_ips()
+    whitelist_ips = db.list_whitelist_ips()
+    active_conns = state.get_active_connections()[:20]
+    user = get_current_user()
     actions_taken: list[dict[str, Any]] = []
 
-    def _traced_unblock_ip_firewall(ip: str) -> dict[str, Any]:
-        """Remove CyberShield Windows Firewall block rules for a previously blocked IP."""
+    def _chat_unblock_ip(ip: str) -> dict[str, Any]:
+        """Remove CyberShield OS firewall block rules for a previously blocked IP address."""
         res = unblock_ip_firewall(ip=ip)
-        actions_taken.append({"tool": "unblock_ip_firewall", "ip": ip, "result": res})
+        actions_taken.append({"tool": "unblock_ip_firewall", "target": ip, "result": res})
         return res
 
-    def _traced_block_ip_firewall(ip: str) -> dict[str, Any]:
-        """Block an external IP address in both outbound and inbound Windows Firewall rules."""
-        res = block_ip_firewall(ip=ip)
-        actions_taken.append({"tool": "block_ip_firewall", "ip": ip, "result": res})
+    def _chat_block_ip(ip: str) -> dict[str, Any]:
+        """Block an external IP address bidirectionally (outbound + inbound) in the OS firewall."""
+        res = block_ip_firewall(ip=ip, reason="Blocked via AI Security Copilot")
+        actions_taken.append({"tool": "block_ip_firewall", "target": ip, "result": res})
         return res
 
-    _traced_unblock_ip_firewall.__name__ = "unblock_ip_firewall"
-    _traced_block_ip_firewall.__name__ = "block_ip_firewall"
+    def _chat_kill_pid(pid: int) -> dict[str, Any]:
+        """Terminate a local OS process by PID."""
+        res = kill_process(pid=pid)
+        actions_taken.append({"tool": "kill_process", "target": str(pid), "result": res})
+        return res
 
-    memory_block = json.dumps(
+    def _chat_send_alert(ip: str, process_name: str, reason: str) -> dict[str, Any]:
+        """Send a real security alert to the signed-in Google user's Gmail and optional ntfy push."""
+        res = send_user_alert(ip=ip, process_name=process_name, reason=reason)
+        actions_taken.append({"tool": "send_user_alert", "target": ip, "result": res})
+        return res
+
+    _chat_unblock_ip.__name__ = "unblock_ip_firewall"
+    _chat_block_ip.__name__ = "block_ip_firewall"
+    _chat_kill_pid.__name__ = "kill_process"
+    _chat_send_alert.__name__ = "send_user_alert"
+
+    context_blob = json.dumps(
         {
+            "signed_in_user": user["email"] if user else None,
             "blocked_ips": blocked_ips,
-            "killed_pids": killed_pids,
-            "recent_incidents": recent_incidents,
+            "whitelist_ips": whitelist_ips,
+            "active_connections_count": len(active_conns),
+            "active_connections_sample": active_conns[:10],
+            "recent_incidents": recent_incidents[:10],
         },
         indent=2,
     )
 
     prompt = (
-        f"Current CyberShield Mesh live incident memory:\n{memory_block}\n\n"
-        f"Operator message: {user_message}"
+        f"Live CyberShield Mesh Endpoint State:\n{context_blob}\n\n"
+        f"Operator question/command: {user_message}"
     )
 
     client = _get_client()
@@ -252,51 +263,50 @@ def _run_chat_sync(user_message: str) -> dict[str, Any]:
                 model=settings.gemini_model,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=CHAT_SYSTEM_PROMPT,
-                    tools=[_traced_unblock_ip_firewall, _traced_block_ip_firewall],
+                    system_instruction=COPILOT_SYSTEM_PROMPT,
+                    tools=[
+                        _chat_unblock_ip,
+                        _chat_block_ip,
+                        _chat_kill_pid,
+                        _chat_send_alert,
+                    ],
                     temperature=0.2,
                 ),
             )
             reply = (response.text or "").strip()
             if not reply and actions_taken:
                 last = actions_taken[-1]
-                reply = f"Executed `{last['tool']}` for {last['ip']}."
+                reply = f"Executed `{last['tool']}` on {last['target']}."
             elif not reply:
-                reply = "Monitoring active. No active threats at this moment."
+                reply = "Endpoint sensor is active and no unresolved threats are present."
             return {
                 "reply": reply,
                 "actions": actions_taken,
-                "blocked_ips": state.get_blocked_ips(),
+                "blocked_ips": db.list_blocked_ips(),
                 "used_gemini": True,
             }
         except Exception as exc:
             logger.error("Gemini chat_with_agent error: %s", exc)
 
-    # Graceful offline / missing-key fallback so chat commands still function cleanly
+    # Graceful offline / missing-key fallback
     lowered = user_message.lower()
     ip_match = re.search(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", user_message)
     if "unblock" in lowered and ip_match:
         target_ip = ip_match.group(0)
-        res = _traced_unblock_ip_firewall(target_ip)
+        res = _chat_unblock_ip(target_ip)
         return {
-            "reply": (
-                f"Removed CyberShield firewall rules for {target_ip} "
-                f"({res.get('detail', 'unblocked')})."
-            ),
+            "reply": f"Unblocked {target_ip}: {res.get('detail', 'done')}",
             "actions": actions_taken,
-            "blocked_ips": state.get_blocked_ips(),
+            "blocked_ips": db.list_blocked_ips(),
             "used_gemini": False,
         }
     if "block" in lowered and "unblock" not in lowered and ip_match:
         target_ip = ip_match.group(0)
-        res = _traced_block_ip_firewall(target_ip)
+        res = _chat_block_ip(target_ip)
         return {
-            "reply": (
-                f"Applied bidirectional firewall block for {target_ip} "
-                f"({res.get('detail', 'blocked')})."
-            ),
+            "reply": f"Blocked {target_ip}: {res.get('detail', 'done')}",
             "actions": actions_taken,
-            "blocked_ips": state.get_blocked_ips(),
+            "blocked_ips": db.list_blocked_ips(),
             "used_gemini": False,
         }
 
@@ -309,29 +319,25 @@ def _run_chat_sync(user_message: str) -> dict[str, Any]:
         ).strip()
     else:
         reply = (
-            "No intrusions recorded yet. CyberShield Mesh is actively monitoring "
-            f"outbound connections on watch ports {sorted(settings.watch_ports)}."
+            f"Endpoint monitor active with {len(active_conns)} live outbound connection(s) "
+            f"and {len(blocked_ips)} blocked IP(s). No threats recorded yet."
         )
-
-    if not settings.has_valid_gemini_key:
-        reply += " (Set GEMINI_API_KEY in .env to enable full Gemini reasoning.)"
 
     return {
         "reply": reply,
         "actions": actions_taken,
-        "blocked_ips": state.get_blocked_ips(),
+        "blocked_ips": db.list_blocked_ips(),
         "used_gemini": False,
     }
 
 
 async def chat_with_agent(user_message: str) -> dict[str, Any]:
-    """Async wrapper for interactive security chat."""
     cleaned = (user_message or "").strip()
     if not cleaned:
         return {
-            "reply": "Ask me about any blocked IP, recent incident, or tell me to unblock an IP.",
+            "reply": "Ask about any active socket, recent threat, or command me to block/unblock an IP.",
             "actions": [],
-            "blocked_ips": state.get_blocked_ips(),
+            "blocked_ips": db.list_blocked_ips(),
             "used_gemini": False,
         }
     return await asyncio.to_thread(_run_chat_sync, cleaned)

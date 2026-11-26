@@ -15,46 +15,36 @@ echo ====================================================================
 echo  CyberShield Mesh - Administrator Live Launcher
 echo ====================================================================
 
-set "PY_CMD="
-where python >nul 2>&1
-if %errorlevel% equ 0 (
-    set "PY_CMD=python"
+if exist "%~dp0.venv\Scripts\python.exe" (
+    set "CYBERSHIELD_PYTHON=%~dp0.venv\Scripts\python.exe"
 ) else (
-    where py >nul 2>&1
+    where python >nul 2>&1
     if %errorlevel% equ 0 (
-        set "PY_CMD=py -3"
+        set "CYBERSHIELD_PYTHON=python"
+    ) else (
+        where py >nul 2>&1
+        if %errorlevel% equ 0 (
+            set "CYBERSHIELD_PYTHON=py"
+        ) else (
+            echo [ERROR] Python 3 not found. Please run INSTALL_WINDOWS.bat first.
+            pause
+            exit /b 1
+        )
     )
 )
 
-if "%PY_CMD%"=="" (
-    echo [ERROR] Python 3 not found on PATH. Install Python 3.10+ first.
-    pause
-    exit /b 1
-)
-
 if not exist ".env" (
-    echo [INFO] Creating .env from .env.example...
     copy /Y ".env.example" ".env" >nul
 )
 
-echo [1/2] Ensuring Python dependencies are installed...
-%PY_CMD% -m pip install --quiet -r requirements.txt
-if %errorlevel% neq 0 (
-    echo [ERROR] pip install failed.
-    pause
-    exit /b 1
-)
-
 if not exist "electron\node_modules" (
-    echo [2/2] Installing Electron dependencies...
-    pushd electron
-    call npm install
-    popd
-) else (
-    echo [2/2] Electron dependencies already installed.
+    echo [INFO] First-time Electron setup detected — running INSTALL_WINDOWS.bat...
+    call "%~dp0INSTALL_WINDOWS.bat"
+    exit /b
 )
 
-echo Launching CyberShield Mesh Desktop App...
+echo Using Python: %CYBERSHIELD_PYTHON%
+echo Launching CyberShield Mesh Desktop Console...
 pushd electron
 call npm start
 popd

@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CyberShield Mesh — Autonomous Intrusion Defense</title>
+  <title>CyberShield Mesh — Endpoint Security Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
   <script>
     tailwind.config = {
@@ -32,607 +32,1157 @@
       background: #050811;
       color: #f1f5f9;
       font-family: 'Inter', sans-serif;
-      user-select: none;
     }
 
-    .stage-bg {
+    .app-bg {
       background:
-        radial-gradient(circle at 22% 50%, rgba(244, 63, 94, 0.08), transparent 42%),
-        radial-gradient(circle at 52% 48%, rgba(14, 165, 233, 0.12), transparent 48%),
-        radial-gradient(circle at 84% 35%, rgba(16, 185, 129, 0.08), transparent 40%);
+        radial-gradient(circle at 12% 18%, rgba(14, 165, 233, 0.10), transparent 40%),
+        radial-gradient(circle at 88% 82%, rgba(16, 185, 129, 0.08), transparent 42%),
+        #050811;
     }
 
-    @keyframes phoneBuzz {
-      0%, 100% { transform: translate(0, 0) rotate(0deg); }
-      20% { transform: translate(-2px, 1px) rotate(-1.5deg); }
-      40% { transform: translate(2px, -1px) rotate(1.5deg); }
-      60% { transform: translate(-2px, -1px) rotate(-1deg); }
-      80% { transform: translate(2px, 1px) rotate(1deg); }
+    .thin-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .thin-scroll::-webkit-scrollbar-track { background: transparent; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.6); border-radius: 9999px; }
+
+    .nav-btn.active {
+      background: rgba(14, 165, 233, 0.14);
+      border-color: rgba(56, 189, 248, 0.35);
+      color: #e0f2fe;
     }
-
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.35); }
-      50% { box-shadow: 0 0 0 8px rgba(56, 189, 248, 0); }
-    }
-
-    .phone-buzz { animation: phoneBuzz 0.38s ease-in-out 4; }
-    .agent-pulse { animation: pulseGlow 2.4s ease-in-out infinite; }
-
-    .chat-scroll::-webkit-scrollbar { width: 4px; }
-    .chat-scroll::-webkit-scrollbar-track { background: transparent; }
-    .chat-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.65); border-radius: 9999px; }
   </style>
 </head>
-<body class="stage-bg flex h-screen w-screen flex-col overflow-hidden">
+<body class="app-bg h-screen w-screen overflow-hidden">
 
-  <!-- COMPACT TOP HEADER -->
-  <header class="z-20 flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-950/85 px-4 backdrop-blur-md">
-    <div class="flex items-center gap-2.5">
-      <span class="agent-pulse flex h-7 w-7 items-center justify-center rounded-lg border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
-        <i class="fa-solid fa-shield-halved text-xs"></i>
-      </span>
-      <span class="font-display text-sm font-bold tracking-tight text-white">CyberShield Mesh</span>
-      <span id="wsBadge" class="hidden sm:inline-flex items-center gap-1.5 rounded bg-slate-800/90 px-2 py-0.5 font-mono text-[10px] text-amber-300">
-        <span id="wsDot" class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-        <span id="wsLabel">CONNECTING</span>
-      </span>
-    </div>
+  <!-- TOAST CONTAINER -->
+  <div id="toastStack" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <!-- Step Progress Pills (1 -> 5) -->
-    <div id="stepPills" class="hidden xl:flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/90 px-2 py-1 font-mono text-[10px]">
-      <span data-s="1" class="step-pill rounded px-1.5 py-0.5 text-slate-500">1. Intrusion</span>
-      <span class="text-slate-600">&rarr;</span>
-      <span data-s="2" class="step-pill rounded px-1.5 py-0.5 text-slate-500">2. AI Defend</span>
-      <span class="text-slate-600">&rarr;</span>
-      <span data-s="3" class="step-pill rounded px-1.5 py-0.5 text-slate-500">3. Mobile Alert</span>
-      <span class="text-slate-600">&rarr;</span>
-      <span data-s="4" class="step-pill rounded px-1.5 py-0.5 text-slate-500">4. Cut Link</span>
-      <span class="text-slate-600">&rarr;</span>
-      <span data-s="5" class="step-pill rounded px-1.5 py-0.5 text-slate-500">5. Source Blocked</span>
-    </div>
-
-    <!-- Top-Right Live Controls: Sound, Simulate Attack, Reset / Unblock -->
-    <div class="flex items-center gap-2 text-[11px]">
-      <button id="soundToggleBtn" type="button" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700 bg-slate-900 text-cyan-300 hover:border-cyan-400 transition" title="Toggle Sound">
-        <i id="soundIcon" class="fa-solid fa-volume-high text-xs"></i>
-      </button>
-
-      <button id="simulateBtn" type="button" class="flex items-center gap-1.5 rounded-lg bg-rose-600 px-2.5 py-1 font-bold text-white shadow-md shadow-rose-600/25 hover:bg-rose-500 active:scale-95 transition">
-        <i class="fa-solid fa-bolt text-[10px]"></i>
-        <span>Simulate Attack</span>
-      </button>
-
-      <button id="resetBtn" type="button" class="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-2.5 py-1 font-bold text-emerald-200 hover:bg-emerald-500/25 active:scale-95 transition">
-        <i class="fa-solid fa-rotate-left text-[10px]"></i>
-        <span>Reset / Unblock</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN SINGLE-SCREEN STAGE -->
-  <main class="relative flex flex-1 w-full min-h-0 overflow-hidden">
-
-    <!-- ANIMATED WORKFLOW CANVAS (LEFT / CENTER) -->
-    <section class="relative flex-1 h-full overflow-hidden">
-      <canvas id="flowCanvas" class="block h-full w-full"></canvas>
-
-      <!-- Current Action Banner (Top-Left Floating) -->
-      <div class="pointer-events-none absolute top-3 left-4 z-10 max-w-md rounded-2xl border border-slate-800/90 bg-slate-950/85 px-3.5 py-2.5 backdrop-blur-md">
-        <div id="phaseBadge" class="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-          LIVE MONITOR &bull; PROTECTED
+  <!-- ======================================================================= -->
+  <!-- 1. GOOGLE ACCOUNT SIGN-IN GATE (SHOWN WHEN USER IS NOT SIGNED IN)       -->
+  <!-- ======================================================================= -->
+  <div id="authGate" class="flex h-full w-full items-center justify-center p-6 overflow-y-auto">
+    <div class="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-950/90 p-7 shadow-2xl shadow-cyan-950/30 backdrop-blur-xl">
+      <div class="flex items-center gap-3">
+        <span class="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
+          <i class="fa-solid fa-shield-halved text-lg"></i>
+        </span>
+        <div>
+          <h1 class="font-display text-xl font-bold tracking-tight text-white">CyberShield Mesh</h1>
+          <p class="font-mono text-[11px] text-slate-400">Autonomous Gemini Endpoint Security Console</p>
         </div>
-        <div id="phaseTitle" class="mt-0.5 font-display text-sm font-bold text-white">
-          Autonomous Defense Ready
+      </div>
+
+      <p class="mt-4 text-sm leading-relaxed text-slate-300">
+        Sign in with your <strong class="text-white">Google Account</strong> to bind this PC to your identity.
+        When CyberShield Mesh detects unauthorized outbound exfiltration, it autonomously alerts your
+        <span class="text-cyan-300 font-medium">Gmail</span> (pushing straight to your phone), kills the offending process, and blocks the attacker IP.
+      </p>
+
+      <!-- Live Host Posture Strip -->
+      <div class="mt-4 grid grid-cols-3 gap-2 rounded-xl border border-slate-800/90 bg-slate-900/60 p-3 font-mono text-[11px]">
+        <div>
+          <div class="text-[9px] uppercase text-slate-500">Host</div>
+          <div id="loginHost" class="mt-0.5 truncate text-slate-200">--</div>
         </div>
-        <p id="phaseDesc" class="mt-0.5 text-[11px] leading-snug text-slate-300">
-          Monitoring outbound TCP sockets in real time. No suspicious connections detected.
+        <div>
+          <div class="text-[9px] uppercase text-slate-500">OS</div>
+          <div id="loginOs" class="mt-0.5 truncate text-slate-200">--</div>
+        </div>
+        <div>
+          <div class="text-[9px] uppercase text-slate-500">AI Engine</div>
+          <div id="loginModel" class="mt-0.5 truncate text-cyan-300">Gemini</div>
+        </div>
+      </div>
+
+      <!-- Primary Google Sign-In Action -->
+      <div id="oauthReadyBox" class="mt-5 hidden">
+        <button id="googleLoginBtn" type="button" class="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-lg hover:bg-slate-100 active:scale-[0.99] transition">
+          <svg class="h-5 w-5" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span>Sign in with Google</span>
+        </button>
+        <p class="mt-2.5 text-center text-[11px] text-slate-400">
+          Opens Google OAuth in your browser with <code class="font-mono text-cyan-300">gmail.send</code> permission to alert your inbox.
         </p>
+        <button id="toggleOAuthEditBtn" type="button" class="mt-3 block w-full text-center font-mono text-[11px] text-slate-500 hover:text-cyan-300 transition">
+          Configure / Change Google OAuth Client ID
+        </button>
       </div>
 
-      <!-- Mobile Phone Push Alert Card (Bottom-Left Floating) -->
-      <div id="mobileCard" class="pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-slate-800 bg-slate-950/90 p-3 backdrop-blur-md transition-all">
-        <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
-          <span class="flex items-center gap-1.5 font-bold text-cyan-300">
-            <i class="fa-solid fa-mobile-screen-button"></i>
-            MOBILE ALERT
+      <!-- Inline Google OAuth Credentials Setup Panel (shown when not yet configured) -->
+      <div id="oauthSetupBox" class="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
+        <div class="flex items-center justify-between">
+          <span class="font-mono text-[11px] font-bold uppercase tracking-wider text-amber-300">
+            <i class="fa-solid fa-key mr-1.5"></i>One-Time Google OAuth Setup
           </span>
-          <span id="mobileTime" class="text-slate-400">Standby</span>
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" class="font-mono text-[10px] text-cyan-300 hover:underline">
+            Open Google Cloud Console &nearr;
+          </a>
         </div>
-        <div id="mobileAlertTitle" class="mt-1 text-xs font-bold text-slate-200">
-          Synced &amp; Standing By
-        </div>
-        <div id="mobileAlertBody" class="mt-0.5 text-[11px] leading-snug text-slate-400">
-          Push notification fires via ntfy.sh the instant Gemini flags an intrusion.
-        </div>
-      </div>
-    </section>
+        <ol class="mt-2 list-decimal space-y-1 pl-4 text-[11px] text-slate-300">
+          <li>In Google Cloud Console, enable <strong>Gmail API</strong> and create an <strong>OAuth 2.0 Client ID (Web application)</strong>.</li>
+          <li>Add Authorized Redirect URI:
+            <code id="redirectUriDisplay" class="rounded bg-slate-900 px-1.5 py-0.5 font-mono text-[10px] text-emerald-300">http://127.0.0.1:8000/auth/google/callback</code>
+          </li>
+          <li>Paste your Client ID &amp; Secret below (saved locally to <code class="font-mono">.env</code>):</li>
+        </ol>
 
-    <!-- RIGHT LIVE DASHBOARD PANEL (COMPACT, ZERO PAGE SCROLL) -->
-    <aside class="z-10 flex w-80 lg:w-[348px] shrink-0 flex-col gap-2 border-l border-slate-800/90 bg-slate-950/88 p-3 backdrop-blur-md min-h-0 overflow-hidden">
-      <!-- Status Title Row -->
-      <div class="flex shrink-0 items-center justify-between">
-        <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-          <i class="fa-solid fa-gauge-high mr-1"></i>Live Dashboard
-        </span>
-        <span id="shieldStatusBadge" class="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300">
-          PROTECTED
-        </span>
-      </div>
-
-      <!-- 4 Key Live Status Cards (Compact 2x2 Grid to Guarantee Zero Scroll) -->
-      <div class="grid shrink-0 grid-cols-2 gap-1.5 text-[11px]">
-        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
-          <div class="font-mono text-[9px] text-slate-400">ATTACKER SOURCE</div>
-          <div id="dashSource" class="mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300">
-            NONE DETECTED
-          </div>
-          <div id="dashSourceState" class="mt-0.5 truncate text-[10px] text-slate-400">
-            Watching outbound ports
-          </div>
-        </div>
-
-        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
-          <div class="font-mono text-[9px] text-slate-400">PROCESS &amp; LINK</div>
-          <div id="dashLink" class="mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300">
-            ALL CLEAR
-          </div>
-          <div id="dashLinkSub" class="mt-0.5 truncate text-[10px] text-slate-400">
-            No unauthorized sockets
-          </div>
-        </div>
-
-        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
-          <div class="font-mono text-[9px] text-slate-400">FIREWALL STATUS</div>
-          <div id="dashBlock" class="mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300">
-            MONITORING
-          </div>
-          <div id="dashBlockSub" class="mt-0.5 truncate text-[10px] text-slate-400">
-            0 IPs blocked
-          </div>
-        </div>
-
-        <div class="rounded-xl border border-slate-800 bg-slate-900/80 p-2">
-          <div class="font-mono text-[9px] text-slate-400">MOBILE PUSH</div>
-          <div id="dashMobile" class="mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300">
-            READY
-          </div>
-          <div id="dashMobileSub" class="mt-0.5 truncate text-[10px] text-slate-400">
-            ntfy.sh device armed
-          </div>
-        </div>
-      </div>
-
-      <!-- Compact Live Event Log (Last 3 Events) -->
-      <div class="shrink-0 rounded-xl border border-slate-800/90 bg-slate-900/60 p-2">
-        <div class="flex items-center justify-between font-mono text-[9px] font-bold uppercase tracking-wider text-slate-400">
-          <span>Action Feed</span>
-          <span id="blockedCountPill" class="text-slate-500">0 blocked</span>
-        </div>
-        <div id="miniLog" class="mt-1 space-y-0.5 font-mono text-[10px] text-slate-300"></div>
-      </div>
-
-      <!-- Compact "Ask CyberShield AI" Interactive Chat Panel -->
-      <div class="flex flex-1 min-h-0 flex-col rounded-xl border border-cyan-500/30 bg-slate-900/75 p-2.5">
-        <div class="flex shrink-0 items-center justify-between">
-          <span class="flex items-center gap-1.5 font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300">
-            <i class="fa-solid fa-sparkles text-[10px]"></i>
-            Ask CyberShield AI
-          </span>
-          <span class="font-mono text-[9px] text-slate-400">Gemini Live</span>
-        </div>
-
-        <!-- Scrollable Chat Reply Area -->
-        <div id="chatMessages" class="chat-scroll select-text mt-1.5 flex-1 min-h-0 space-y-1.5 overflow-y-auto pr-1 text-[11px] leading-snug">
-          <div class="rounded-lg border border-slate-800 bg-slate-950/70 px-2.5 py-1.5 text-slate-300">
-            Ask <span class="font-mono text-cyan-300">"Why did you block 10.100.5.67?"</span> or type <span class="font-mono text-emerald-300">"Unblock 10.100.5.67"</span> to manage live firewall rules.
-          </div>
-        </div>
-
-        <!-- Input Bar -->
-        <form id="chatForm" class="mt-2 flex shrink-0 items-center gap-1.5">
-          <input
-            id="chatInput"
-            type="text"
-            autocomplete="off"
-            placeholder="Ask AI or unblock an IP..."
-            class="select-text w-full rounded-lg border border-slate-700/90 bg-slate-950/90 px-2.5 py-1.5 text-[11px] text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none"
-          />
-          <button
-            id="chatSendBtn"
-            type="submit"
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500 text-slate-950 font-bold hover:bg-cyan-400 active:scale-95 transition disabled:opacity-50"
-            title="Send to CyberShield AI"
-          >
-            <i class="fa-solid fa-paper-plane text-[10px]"></i>
+        <form id="oauthConfigForm" class="mt-3 space-y-2.5">
+          <input id="oauthClientIdInput" type="text" required placeholder="GOOGLE_CLIENT_ID (e.g. 123456-abc.apps.googleusercontent.com)"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+          <input id="oauthClientSecretInput" type="password" required placeholder="GOOGLE_CLIENT_SECRET (paste your OAuth Client Secret)"
+            class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+          <button type="submit" class="w-full rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition">
+            Save Google OAuth Credentials
           </button>
         </form>
       </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- 2. AUTHENTICATED ENDPOINT SECURITY CONSOLE                              -->
+  <!-- ======================================================================= -->
+  <div id="consoleShell" class="hidden h-full w-full flex">
+
+    <!-- LEFT NAVIGATION SIDEBAR -->
+    <aside class="flex w-60 shrink-0 flex-col justify-between border-r border-slate-800/90 bg-slate-950/90 p-3.5">
+      <div>
+        <div class="flex items-center justify-between px-1">
+          <div class="flex items-center gap-2.5">
+            <span class="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
+              <i class="fa-solid fa-shield-halved text-sm"></i>
+            </span>
+            <div>
+              <div class="font-display text-sm font-bold text-white leading-tight">CyberShield</div>
+              <div class="font-mono text-[9px] text-slate-400">ENDPOINT CONSOLE</div>
+            </div>
+          </div>
+          <span id="wsStatusPill" class="inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] text-amber-300">
+            <span id="wsDot" class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
+            <span id="wsText">SYNC</span>
+          </span>
+        </div>
+
+        <nav class="mt-5 space-y-1">
+          <button data-tab="monitor" class="nav-btn active flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-slate-900 transition">
+            <span><i class="fa-solid fa-radar w-5 text-cyan-400"></i>Live Monitor</span>
+            <span id="navConnCount" class="rounded-md bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">0</span>
+          </button>
+          <button data-tab="incidents" class="nav-btn flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-slate-900 transition">
+            <span><i class="fa-solid fa-triangle-exclamation w-5 text-rose-400"></i>Incidents</span>
+            <span id="navIncCount" class="rounded-md bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">0</span>
+          </button>
+          <button data-tab="firewall" class="nav-btn flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-slate-900 transition">
+            <span><i class="fa-solid fa-ban w-5 text-amber-400"></i>Firewall &amp; Whitelist</span>
+            <span id="navBlockCount" class="rounded-md bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">0</span>
+          </button>
+          <button data-tab="copilot" class="nav-btn flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-slate-900 transition">
+            <span><i class="fa-solid fa-sparkles w-5 text-sky-400"></i>AI Copilot</span>
+            <span class="font-mono text-[9px] text-cyan-400">GEMINI</span>
+          </button>
+          <button data-tab="settings" class="nav-btn flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-slate-900 transition">
+            <span><i class="fa-solid fa-sliders w-5 text-emerald-400"></i>Account &amp; Settings</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Signed-in Google User Card -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900/75 p-2.5">
+        <div class="flex items-center gap-2.5">
+          <img id="sidebarAvatar" src="" alt="" class="h-8 w-8 rounded-full border border-slate-700 bg-slate-800 object-cover" />
+          <div class="min-w-0 flex-1">
+            <div id="sidebarName" class="truncate text-xs font-semibold text-white">Signed In</div>
+            <div id="sidebarEmail" class="truncate font-mono text-[10px] text-slate-400">user@gmail.com</div>
+          </div>
+        </div>
+        <div class="mt-2 flex items-center justify-between border-t border-slate-800 pt-2">
+          <span id="sidebarGmailBadge" class="font-mono text-[9px] text-emerald-400">
+            <i class="fa-solid fa-envelope-circle-check mr-1"></i>Gmail Ready
+          </span>
+          <button id="sidebarLogoutBtn" type="button" class="font-mono text-[10px] text-slate-400 hover:text-rose-300 transition">
+            Sign Out
+          </button>
+        </div>
+      </div>
     </aside>
-  </main>
+
+    <!-- MAIN CONTENT WORKSPACE -->
+    <div class="flex flex-1 min-w-0 flex-col overflow-hidden">
+      <!-- TOP TELEMETRY BAR -->
+      <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-800/90 bg-slate-950/75 px-5 backdrop-blur-md">
+        <div class="flex items-center gap-3 min-w-0">
+          <h2 id="viewTitle" class="font-display text-base font-bold text-white">Live Network Monitor</h2>
+          <span id="hostBadge" class="hidden md:inline-block rounded-md border border-slate-800 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+            --
+          </span>
+          <span id="adminBadge" class="rounded-md border border-slate-800 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-400">
+            --
+          </span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-200">
+            <input id="quickAutonomousToggle" type="checkbox" class="h-3.5 w-3.5 accent-cyan-400" />
+            <span>Autonomous AI</span>
+          </label>
+          <span id="postureBadge" class="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300">
+            ARMED
+          </span>
+        </div>
+      </header>
+
+      <!-- TAB PANELS CONTAINER -->
+      <main class="flex-1 min-h-0 overflow-hidden p-5">
+
+        <!-- =============================================================== -->
+        <!-- TAB 1: LIVE NETWORK MONITOR                                     -->
+        <!-- =============================================================== -->
+        <section id="tab-monitor" class="tab-panel flex h-full flex-col gap-4 overflow-hidden">
+          <!-- KPI Row -->
+          <div class="grid shrink-0 grid-cols-2 lg:grid-cols-4 gap-3">
+            <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-3.5">
+              <div class="font-mono text-[10px] uppercase text-slate-400">Active Outbound Sockets</div>
+              <div id="kpiConnections" class="mt-1 font-display text-2xl font-bold text-white">0</div>
+              <div class="mt-0.5 text-[11px] text-slate-400">Live ESTABLISHED TCP</div>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-3.5">
+              <div class="font-mono text-[10px] uppercase text-slate-400">Threats Contained</div>
+              <div id="kpiIncidents" class="mt-1 font-display text-2xl font-bold text-rose-300">0</div>
+              <div class="mt-0.5 text-[11px] text-slate-400">Persisted in SQLite</div>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-3.5">
+              <div class="font-mono text-[10px] uppercase text-slate-400">Firewall Blocked IPs</div>
+              <div id="kpiBlocked" class="mt-1 font-display text-2xl font-bold text-amber-300">0</div>
+              <div class="mt-0.5 text-[11px] text-slate-400">In + Out deny rules</div>
+            </div>
+            <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-3.5">
+              <div class="font-mono text-[10px] uppercase text-slate-400">Owner Alert Channel</div>
+              <div id="kpiAlertEmail" class="mt-1 truncate font-mono text-sm font-bold text-emerald-300">Connected</div>
+              <div id="kpiAlertSub" class="mt-1 text-[11px] text-slate-400">Gmail API + ntfy armed</div>
+            </div>
+          </div>
+
+          <!-- Split: Live Connections Table + Live Activity Feed -->
+          <div class="grid flex-1 min-h-0 grid-cols-1 xl:grid-cols-3 gap-4 overflow-hidden">
+            <!-- Live Outbound Connections Table -->
+            <div class="xl:col-span-2 flex min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-950/75 overflow-hidden">
+              <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+                <div>
+                  <h3 class="text-sm font-semibold text-white">Live Outbound TCP Connections</h3>
+                  <p class="text-[11px] text-slate-400">Real OS telemetry from psutil — refreshed automatically in real time</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <input id="connFilterInput" type="text" placeholder="Filter process, IP, port..."
+                    class="w-48 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+                  <button id="refreshConnBtn" type="button" class="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-xs text-slate-300 hover:border-cyan-400 transition" title="Refresh Now">
+                    <i class="fa-solid fa-rotate"></i>
+                  </button>
+                </div>
+              </div>
+              <div class="thin-scroll flex-1 overflow-auto">
+                <table class="w-full text-left text-xs">
+                  <thead class="sticky top-0 bg-slate-900/95 font-mono text-[10px] uppercase text-slate-400">
+                    <tr>
+                      <th class="px-4 py-2.5">Process</th>
+                      <th class="px-3 py-2.5">PID</th>
+                      <th class="px-3 py-2.5">Remote Peer</th>
+                      <th class="px-3 py-2.5">Risk</th>
+                      <th class="px-4 py-2.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="connectionsTbody" class="divide-y divide-slate-800/70 font-mono text-[11px]"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Live Sensor & AI Activity Feed -->
+            <div class="flex min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-950/75 overflow-hidden">
+              <div class="shrink-0 border-b border-slate-800 px-4 py-3">
+                <h3 class="text-sm font-semibold text-white">Live Defense Activity</h3>
+                <p class="text-[11px] text-slate-400">Real-time sensor, Gmail alert &amp; Gemini events</p>
+              </div>
+              <div id="activityFeedList" class="thin-scroll flex-1 space-y-2 overflow-y-auto p-3 text-xs"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 2: THREATS & INCIDENTS                                      -->
+        <!-- =============================================================== -->
+        <section id="tab-incidents" class="tab-panel hidden flex h-full flex-col gap-3 overflow-hidden">
+          <div class="flex shrink-0 items-center justify-between">
+            <p class="text-xs text-slate-400">Persistent SQLite log of detected threats, Gemini reasoning, Gmail/ntfy receipts, and OS containment actions.</p>
+            <input id="incFilterInput" type="text" placeholder="Search IP or process..."
+              class="w-56 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+          </div>
+          <div id="incidentsList" class="thin-scroll flex-1 space-y-3 overflow-y-auto pr-1"></div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 3: FIREWALL & WHITELIST                                     -->
+        <!-- =============================================================== -->
+        <section id="tab-firewall" class="tab-panel hidden grid h-full grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
+          <!-- Blocked IPs -->
+          <div class="flex min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-950/75 overflow-hidden">
+            <div class="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
+              <div>
+                <h3 class="text-sm font-semibold text-white">Blocked IP Addresses</h3>
+                <p class="text-[11px] text-slate-400">Bidirectional inbound + outbound firewall rules</p>
+              </div>
+              <button id="resetFirewallBtn" type="button" class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition">
+                Clear All Rules
+              </button>
+            </div>
+            <form id="manualBlockForm" class="flex shrink-0 gap-2 border-b border-slate-800/80 p-3">
+              <input id="blockIpInput" type="text" required placeholder="IP to block (e.g. 10.100.5.67)"
+                class="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-rose-400 focus:outline-none" />
+              <button type="submit" class="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-rose-500 transition">
+                Block IP
+              </button>
+            </form>
+            <div id="blockedList" class="thin-scroll flex-1 space-y-2 overflow-y-auto p-3"></div>
+          </div>
+
+          <!-- Trusted Whitelist -->
+          <div class="flex min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-950/75 overflow-hidden">
+            <div class="shrink-0 border-b border-slate-800 px-4 py-3">
+              <h3 class="text-sm font-semibold text-white">Trusted IP Whitelist</h3>
+              <p class="text-[11px] text-slate-400">Whitelisted peers will never trigger autonomous containment</p>
+            </div>
+            <form id="whitelistForm" class="flex shrink-0 gap-2 border-b border-slate-800/80 p-3">
+              <input id="whitelistIpInput" type="text" required placeholder="Trusted IP (e.g. 192.168.1.10)"
+                class="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none" />
+              <input id="whitelistLabelInput" type="text" placeholder="Label (optional)"
+                class="w-36 rounded-lg border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none" />
+              <button type="submit" class="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 transition">
+                Trust
+              </button>
+            </form>
+            <div id="whitelistList" class="thin-scroll flex-1 space-y-2 overflow-y-auto p-3"></div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 4: AI SECURITY COPILOT                                      -->
+        <!-- =============================================================== -->
+        <section id="tab-copilot" class="tab-panel hidden flex h-full flex-col rounded-2xl border border-slate-800 bg-slate-950/75 overflow-hidden">
+          <div class="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-3">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Gemini AI Security Copilot</h3>
+              <p class="text-[11px] text-slate-400">Ask about active sockets, past threats, or command live firewall &amp; process tools</p>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <button data-prompt="Summarize recent security incidents and currently blocked IPs." class="copilot-chip rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] text-slate-300 hover:border-cyan-400 transition">Summarize threats</button>
+              <button data-prompt="Why did you block 10.100.5.67?" class="copilot-chip rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] text-slate-300 hover:border-cyan-400 transition">Why block 10.100.5.67?</button>
+              <button data-prompt="Unblock 10.100.5.67, that is my test server." class="copilot-chip rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1 text-[11px] text-slate-300 hover:border-emerald-400 transition">Unblock 10.100.5.67</button>
+            </div>
+          </div>
+
+          <div id="copilotMessages" class="thin-scroll flex-1 space-y-3 overflow-y-auto p-4 text-sm">
+            <div class="max-w-2xl rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-xs leading-relaxed text-slate-300">
+              Hello! I am connected to your live <span class="font-mono text-cyan-300">psutil</span> socket stream, SQLite incident database, Gmail alert channel, and OS firewall tools. Ask me anything or give a live defense command.
+            </div>
+          </div>
+
+          <form id="copilotForm" class="flex shrink-0 items-center gap-2 border-t border-slate-800 p-3">
+            <input id="copilotInput" type="text" autocomplete="off" placeholder="Ask Gemini about a threat or command e.g. 'Unblock 10.100.5.67'..."
+              class="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
+            <button id="copilotSendBtn" type="submit" class="rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition disabled:opacity-50">
+              <i class="fa-solid fa-paper-plane mr-1.5"></i>Send
+            </button>
+          </form>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- TAB 5: ACCOUNT & SETTINGS                                       -->
+        <!-- =============================================================== -->
+        <section id="tab-settings" class="tab-panel hidden grid h-full grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto thin-scroll pr-1">
+          <!-- Google Account & Alert Delivery Test -->
+          <div class="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/75 p-5">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Connected Google Account</h3>
+              <p class="text-[11px] text-slate-400">Real-time Gmail API alerts are sent directly to this inbox</p>
+            </div>
+
+            <div class="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-900/75 p-4">
+              <img id="settingsAvatar" src="" alt="" class="h-14 w-14 rounded-full border border-cyan-500/40 bg-slate-800 object-cover" />
+              <div class="min-w-0 flex-1">
+                <div id="settingsName" class="truncate text-base font-bold text-white">--</div>
+                <div id="settingsEmail" class="truncate font-mono text-xs text-cyan-300">--</div>
+                <div id="settingsGmailStatus" class="mt-1 font-mono text-[11px] text-emerald-400">Gmail API send scope active</div>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <button id="testAlertBtn" type="button" class="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition">
+                <i class="fa-solid fa-paper-plane mr-1.5"></i>Send Test Alert to My Gmail
+              </button>
+              <button id="settingsLogoutBtn" type="button" class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition">
+                <i class="fa-solid fa-right-from-bracket mr-1.5"></i>Sign Out
+              </button>
+            </div>
+
+            <div id="testAlertReceipt" class="hidden rounded-xl border border-slate-800 bg-slate-900/80 p-3 font-mono text-[11px] text-slate-300"></div>
+          </div>
+
+          <!-- Detection & Alert Policy Form -->
+          <form id="settingsForm" class="flex flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/75 p-5">
+            <div>
+              <h3 class="text-sm font-semibold text-white">Detection &amp; Notification Policy</h3>
+              <p class="text-[11px] text-slate-400">Changes persist in SQLite and apply immediately to the live sensor</p>
+            </div>
+
+            <label class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-xs">
+              <span><strong>Autonomous Containment</strong><br/><span class="text-[11px] text-slate-400">Automatically alert, kill PID, and block IP via Gemini</span></span>
+              <input id="setAutonomous" type="checkbox" class="h-4 w-4 accent-cyan-400" />
+            </label>
+
+            <label class="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3.5 py-2.5 text-xs">
+              <span><strong>Gmail Security Alerts</strong><br/><span class="text-[11px] text-slate-400">Send HTML alert email to your signed-in Google account</span></span>
+              <input id="setGmailEnabled" type="checkbox" class="h-4 w-4 accent-emerald-400" />
+            </label>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5 space-y-2.5">
+              <label class="flex items-center justify-between text-xs">
+                <span><strong>Optional ntfy.sh Mobile Push</strong><br/><span class="text-[11px] text-slate-400">Parallel push notification to the ntfy phone app</span></span>
+                <input id="setNtfyEnabled" type="checkbox" class="h-4 w-4 accent-cyan-400" />
+              </label>
+              <input id="setNtfyTopic" type="text" placeholder="ntfy topic name"
+                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 font-mono text-xs text-slate-100 focus:border-cyan-400 focus:outline-none" />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="block font-mono text-[10px] uppercase text-slate-400">Watch Remote Ports (comma-separated)</label>
+              <input id="setWatchPorts" type="text" placeholder="4444, 1337, 9001, 5555"
+                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 focus:border-cyan-400 focus:outline-none" />
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="block font-mono text-[10px] uppercase text-slate-400">Suspicious Process Names (comma-separated)</label>
+              <input id="setSuspiciousProcs" type="text" placeholder="sim_intrusion.exe, ncat.exe, nc.exe"
+                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 focus:border-cyan-400 focus:outline-none" />
+            </div>
+
+            <button type="submit" class="mt-auto rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition">
+              Save Policy Settings
+            </button>
+          </form>
+        </section>
+
+      </main>
+    </div>
+  </div>
 
   <script>
     // =========================================================================
-    // LIVE WEBSOCKET STATE (STEP 0 = PROTECTED / IDLE, STEPS 1 -> 5 = LIVE)
+    // APPLICATION STATE (100% REAL BACKEND + WEBSOCKET DRIVEN)
     // =========================================================================
-    const live = {
-      step: 0,
-      status: 'PROTECTED',
-      ip: '',
-      port: 0,
-      pid: 0,
-      processName: '',
-      aiSummary: 'Monitoring outbound TCP sockets in real time. No suspicious connections detected.',
+    const appState = {
+      user: null,
+      oauthConfigured: false,
+      redirectUri: 'http://127.0.0.1:8000/auth/google/callback',
+      protectionStatus: 'ARMED',
+      hostname: '--',
+      osName: '--',
+      isAdmin: false,
+      geminiModel: 'gemini-3.5-flash-lite',
+      activeConnections: [],
+      incidents: [],
+      totalIncidents: 0,
       blockedIps: [],
-      soundOn: true,
-      time: 0,
-      packets: [],
-      alertParticles: [],
-      logs: ['System ready • Monitoring outbound TCP sockets'],
-      wsConnected: false
+      whitelistIps: [],
+      settings: {},
+      activityFeed: [],
+      activeTab: 'monitor'
     };
 
-    // =========================================================================
-    // SUBTLE SYNTHESIZED AUDIO FEEDBACK
-    // =========================================================================
-    let audioCtx = null;
-    function playStepTone(stepNum) {
-      if (!live.soundOn || stepNum <= 0) return;
-      try {
-        if (!audioCtx) {
-          const Ctx = window.AudioContext || window.webkitAudioContext;
-          if (Ctx) audioCtx = new Ctx();
-        }
-        if (!audioCtx) return;
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        if (stepNum === 1) {
-          osc.type = 'sawtooth';
-          osc.frequency.setValueAtTime(340, now);
-          osc.frequency.linearRampToValueAtTime(510, now + 0.16);
-          gain.gain.setValueAtTime(0.045, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-          osc.start(now); osc.stop(now + 0.19);
-        } else if (stepNum === 3) {
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(660, now);
-          osc.frequency.setValueAtTime(880, now + 0.1);
-          gain.gain.setValueAtTime(0.055, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
-          osc.start(now); osc.stop(now + 0.25);
-        } else if (stepNum === 4 || stepNum === 5) {
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(520, now);
-          osc.frequency.exponentialRampToValueAtTime(820, now + 0.18);
-          gain.gain.setValueAtTime(0.045, now);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-          osc.start(now); osc.stop(now + 0.21);
-        }
-      } catch (_) {}
-    }
-
-    function escapeHtml(str) {
-      return String(str || '')
+    function esc(s) {
+      return String(s ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
     }
 
-    function pushLog(msg) {
-      if (!msg) return;
-      if (live.logs[0] !== msg) {
-        live.logs.unshift(msg);
-        live.logs = live.logs.slice(0, 3);
+    function showToast(message, type = 'info') {
+      const stack = document.getElementById('toastStack');
+      const colors = {
+        success: 'border-emerald-500/50 bg-slate-950/95 text-emerald-200',
+        danger: 'border-rose-500/60 bg-slate-950/95 text-rose-200',
+        warn: 'border-amber-500/50 bg-slate-950/95 text-amber-200',
+        info: 'border-cyan-500/50 bg-slate-950/95 text-cyan-200'
+      };
+      const el = document.createElement('div');
+      el.className = `pointer-events-auto max-w-sm rounded-xl border px-3.5 py-2.5 text-xs shadow-xl backdrop-blur-md ${colors[type] || colors.info}`;
+      el.textContent = message;
+      stack.appendChild(el);
+      setTimeout(() => el.remove(), 4200);
+    }
+
+    async function apiJson(url, options = {}) {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `HTTP ${res.status}`);
       }
-      renderLogs();
-    }
-
-    function renderLogs() {
-      const container = document.getElementById('miniLog');
-      container.innerHTML = live.logs
-        .slice(0, 3)
-        .map((line, i) => `<div class="${i === 0 ? 'text-cyan-200 font-semibold' : 'text-slate-400'} truncate" title="${escapeHtml(line)}">${escapeHtml(line)}</div>`)
-        .join('');
-    }
-
-    function formatPeer() {
-      if (!live.ip) return 'NONE DETECTED';
-      return live.port ? `${live.ip}:${live.port}` : live.ip;
-    }
-
-    function formatProc() {
-      if (!live.processName && !live.pid) return 'No active threat';
-      if (live.processName && live.pid) return `${live.processName} (PID ${live.pid})`;
-      return live.processName || `PID ${live.pid}`;
+      return data;
     }
 
     // =========================================================================
-    // UI STATE RENDERER FOR STEPS 0..5
+    // RENDERERS
     // =========================================================================
-    function applyLiveUI(playAudio = false) {
-      const step = live.step;
-      const peer = formatPeer();
-      const proc = formatProc();
-      const blockedCount = live.blockedIps.length;
+    function renderAuthGate() {
+      const gate = document.getElementById('authGate');
+      const shell = document.getElementById('consoleShell');
 
-      const phaseBadge = document.getElementById('phaseBadge');
-      const phaseTitle = document.getElementById('phaseTitle');
-      const phaseDesc = document.getElementById('phaseDesc');
-      const shieldBadge = document.getElementById('shieldStatusBadge');
+      document.getElementById('loginHost').textContent = appState.hostname || '--';
+      document.getElementById('loginOs').textContent = appState.osName || '--';
+      document.getElementById('loginModel').textContent = appState.geminiModel || 'Gemini';
+      document.getElementById('redirectUriDisplay').textContent = appState.redirectUri;
 
-      const dashSource = document.getElementById('dashSource');
-      const dashSourceState = document.getElementById('dashSourceState');
-      const dashLink = document.getElementById('dashLink');
-      const dashLinkSub = document.getElementById('dashLinkSub');
-      const dashBlock = document.getElementById('dashBlock');
-      const dashBlockSub = document.getElementById('dashBlockSub');
-      const dashMobile = document.getElementById('dashMobile');
-      const dashMobileSub = document.getElementById('dashMobileSub');
-
-      const mobileCard = document.getElementById('mobileCard');
-      const mobileTime = document.getElementById('mobileTime');
-      const mobileTitle = document.getElementById('mobileAlertTitle');
-      const mobileBody = document.getElementById('mobileAlertBody');
-
-      document.getElementById('blockedCountPill').textContent = `${blockedCount} blocked`;
-
-      if (step === 0) {
-        phaseBadge.textContent = 'LIVE MONITOR • PROTECTED';
-        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400';
-        phaseTitle.textContent = 'Autonomous Defense Ready';
-        phaseDesc.textContent = live.aiSummary || 'Monitoring outbound TCP sockets in real time. No suspicious connections detected.';
-
-        shieldBadge.textContent = 'PROTECTED';
-        shieldBadge.className = 'rounded-full border border-emerald-500/40 bg-emerald-500/15 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300';
-
-        dashSource.textContent = 'NONE DETECTED';
-        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300';
-        dashSourceState.textContent = 'Watching outbound ports';
-
-        dashLink.textContent = 'ALL CLEAR';
-        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashLinkSub.textContent = 'No unauthorized sockets';
-
-        dashBlock.textContent = blockedCount > 0 ? `${blockedCount} ACTIVE` : 'MONITORING';
-        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashBlockSub.textContent = blockedCount > 0 ? live.blockedIps.join(', ') : '0 IPs blocked';
-
-        dashMobile.textContent = 'READY';
-        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-slate-300';
-        dashMobileSub.textContent = 'ntfy.sh device armed';
-
-        mobileTime.textContent = 'Standby';
-        mobileTitle.textContent = 'Synced & Standing By';
-        mobileBody.textContent = 'Push notification fires via ntfy.sh the instant Gemini flags an intrusion.';
-        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-slate-800 bg-slate-950/90 p-3 backdrop-blur-md transition-all';
-      } else if (step === 1) {
-        phaseBadge.textContent = 'STEP 1/5 • INTRUSION DETECTED';
-        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-rose-400';
-        phaseTitle.textContent = `Suspicious Outbound Link to ${peer}`;
-        phaseDesc.textContent = `${proc} opened an unauthorized connection. Handing live telemetry to Google Gemini.`;
-
-        shieldBadge.textContent = 'INTRUSION DETECTED';
-        shieldBadge.className = 'rounded-full border border-rose-500/50 bg-rose-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-rose-300';
-
-        dashSource.textContent = peer;
-        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
-        dashSourceState.textContent = 'Active outbound stream';
-
-        dashLink.textContent = 'ACTIVE & SUSPICIOUS';
-        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
-        dashLinkSub.textContent = proc;
-
-        dashBlock.textContent = 'PENDING AI';
-        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
-        dashBlockSub.textContent = 'Evaluating peer IP';
-
-        dashMobile.textContent = 'QUEUED';
-        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
-        dashMobileSub.textContent = 'Preparing urgent push';
-
-        mobileTime.textContent = 'Detecting...';
-        mobileTitle.textContent = 'Suspicious Activity Detected';
-        mobileBody.textContent = `${proc} streaming to ${peer}.`;
-        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-rose-500/50 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
-      } else if (step === 2) {
-        phaseBadge.textContent = 'STEP 2/5 • GEMINI AI DEFENDING';
-        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300';
-        phaseTitle.textContent = 'Gemini AI Reasoning & Calling Tools';
-        phaseDesc.textContent = live.aiSummary || `Evaluating ${proc} -> ${peer} and invoking autonomous containment tools.`;
-
-        shieldBadge.textContent = 'AI DEFENDING';
-        shieldBadge.className = 'rounded-full border border-cyan-400/50 bg-cyan-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-cyan-200';
-
-        dashSource.textContent = peer;
-        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
-        dashSourceState.textContent = 'Flagged malicious by AI';
-
-        dashLink.textContent = 'INTERCEPTED BY AI';
-        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
-        dashLinkSub.textContent = proc;
-
-        dashBlock.textContent = 'PREPARING BLOCK';
-        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
-        dashBlockSub.textContent = `Targeting ${live.ip}`;
-
-        dashMobile.textContent = 'DISPATCHING...';
-        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
-        dashMobileSub.textContent = 'Calling send_mobile_alert';
-
-        mobileTime.textContent = 'Sending...';
-        mobileTitle.textContent = 'AI Agent Engaged Defense';
-        mobileBody.textContent = `Intercepting ${proc} -> ${peer}.`;
-        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-cyan-400/50 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
-      } else if (step === 3) {
-        phaseBadge.textContent = 'STEP 3/5 • MOBILE ALERT SENT';
-        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-amber-300';
-        phaseTitle.textContent = 'Push Notification Delivered to Phone';
-        phaseDesc.textContent = `Urgent ntfy.sh alert dispatched with ${proc} and remote IP ${live.ip}. Severing socket next.`;
-
-        shieldBadge.textContent = 'MOBILE ALERT SENT';
-        shieldBadge.className = 'rounded-full border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-amber-200';
-
-        dashSource.textContent = peer;
-        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-rose-300';
-        dashSourceState.textContent = 'Reported to owner phone';
-
-        dashLink.textContent = 'CONTAINING SOCKET';
-        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
-        dashLinkSub.textContent = `Killing ${proc}`;
-
-        dashBlock.textContent = 'QUEUED FOR DROP';
-        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
-        dashBlockSub.textContent = `Blocking ${live.ip}`;
-
-        dashMobile.textContent = 'DELIVERED';
-        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashMobileSub.textContent = 'Sent via ntfy.sh push';
-
-        mobileTime.textContent = 'Just now';
-        mobileTitle.textContent = `URGENT: Intrusion to ${live.ip}`;
-        mobileBody.textContent = `${proc} flagged. Severing connection & blocking IP.`;
-
-        mobileCard.classList.remove('phone-buzz');
-        void mobileCard.offsetWidth;
-        mobileCard.className = 'phone-buzz pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-amber-400/75 bg-slate-950/95 p-3 backdrop-blur-md transition-all';
-      } else if (step === 4) {
-        phaseBadge.textContent = 'STEP 4/5 • CONNECTION SEVERED';
-        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-sky-300';
-        phaseTitle.textContent = `Process Terminated & Link Severed`;
-        phaseDesc.textContent = `Terminated ${proc} to cut live exfiltration to ${peer}. Applying Windows Firewall deny rules.`;
-
-        shieldBadge.textContent = 'LINK SEVERED';
-        shieldBadge.className = 'rounded-full border border-sky-400/50 bg-sky-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-sky-200';
-
-        dashSource.textContent = peer;
-        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-amber-300';
-        dashSourceState.textContent = 'Live session terminated';
-
-        dashLink.textContent = 'DISCONNECTED';
-        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashLinkSub.textContent = `Killed ${proc}`;
-
-        dashBlock.textContent = 'WRITING RULES...';
-        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-cyan-300';
-        dashBlockSub.textContent = `In+Out deny for ${live.ip}`;
-
-        dashMobile.textContent = 'SENT • SYNCED';
-        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashMobileSub.textContent = 'Owner notified';
-
-        mobileTime.textContent = 'Just now';
-        mobileTitle.textContent = 'Connection Severed';
-        mobileBody.textContent = `Terminated ${proc}. Blocking ${live.ip} in firewall.`;
-        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-emerald-500/50 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
-      } else if (step >= 5) {
-        phaseBadge.textContent = 'STEP 5/5 • SOURCE BLOCKED';
-        phaseBadge.className = 'font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400';
-        phaseTitle.textContent = `${live.ip || 'Attacker'} Blocked Bidirectionally`;
-        phaseDesc.textContent = live.aiSummary || `Inbound & outbound firewall rules now block ${live.ip}. Your PC is protected.`;
-
-        shieldBadge.textContent = 'SOURCE BLOCKED';
-        shieldBadge.className = 'rounded-full border border-emerald-500/50 bg-emerald-500/20 px-2 py-0.5 font-mono text-[10px] font-bold text-emerald-300';
-
-        dashSource.textContent = peer;
-        dashSource.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashSourceState.textContent = 'Blocked at firewall wall';
-
-        dashLink.textContent = 'SEVERED & BLOCKED';
-        dashLink.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashLinkSub.textContent = `Killed ${proc}`;
-
-        dashBlock.textContent = `BLOCKED (${live.ip})`;
-        dashBlock.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashBlockSub.textContent = 'In+Out Firewall rules active';
-
-        dashMobile.textContent = 'DELIVERED';
-        dashMobile.className = 'mt-0.5 truncate font-mono text-[11px] font-bold text-emerald-300';
-        dashMobileSub.textContent = 'Containment complete';
-
-        mobileTime.textContent = 'Resolved';
-        mobileTitle.textContent = 'Source Blocked • PC Safe';
-        mobileBody.textContent = `${live.ip} blocked in Windows Firewall. ${proc} stopped.`;
-        mobileCard.className = 'pointer-events-none absolute bottom-3 left-4 z-10 w-72 rounded-2xl border border-emerald-500/60 bg-slate-950/92 p-3 backdrop-blur-md transition-all';
-      }
-
-      // Step Progress Pills
-      document.querySelectorAll('.step-pill').forEach(el => {
-        const s = Number(el.getAttribute('data-s'));
-        if (step === 0) {
-          el.className = 'step-pill rounded px-1.5 py-0.5 text-slate-500';
-        } else if (s === step) {
-          el.className = 'step-pill rounded bg-cyan-500/25 px-1.5 py-0.5 font-bold text-cyan-200 border border-cyan-400/40';
-        } else if (s < step) {
-          el.className = 'step-pill rounded bg-emerald-500/15 px-1.5 py-0.5 font-semibold text-emerald-300';
+      if (appState.user) {
+        gate.classList.add('hidden');
+        shell.classList.remove('hidden');
+        renderUserProfile();
+      } else {
+        shell.classList.add('hidden');
+        gate.classList.remove('hidden');
+        const readyBox = document.getElementById('oauthReadyBox');
+        const setupBox = document.getElementById('oauthSetupBox');
+        if (appState.oauthConfigured) {
+          readyBox.classList.remove('hidden');
+          setupBox.classList.add('hidden');
         } else {
-          el.className = 'step-pill rounded px-1.5 py-0.5 text-slate-500';
+          readyBox.classList.add('hidden');
+          setupBox.classList.remove('hidden');
         }
+      }
+    }
+
+    function renderUserProfile() {
+      const u = appState.user;
+      if (!u) return;
+      const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || u.email)}&background=0f172a&color=38bdf8`;
+      const pic = u.picture || fallbackAvatar;
+
+      document.getElementById('sidebarAvatar').src = pic;
+      document.getElementById('sidebarName').textContent = u.name || 'Google User';
+      document.getElementById('sidebarEmail').textContent = u.email || '';
+      document.getElementById('sidebarGmailBadge').innerHTML = u.gmail_authorized
+        ? '<i class="fa-solid fa-envelope-circle-check mr-1"></i>Gmail Ready'
+        : '<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-400"></i>Re-auth Gmail';
+
+      document.getElementById('settingsAvatar').src = pic;
+      document.getElementById('settingsName').textContent = u.name || 'Google User';
+      document.getElementById('settingsEmail').textContent = u.email || '';
+      document.getElementById('settingsGmailStatus').textContent = u.gmail_authorized
+        ? 'Google OAuth active • gmail.send authorized'
+        : 'Gmail send scope missing — sign out & sign in again';
+
+      document.getElementById('kpiAlertEmail').textContent = u.email || 'Connected';
+      const gmailOn = appState.settings.gmail_alerts_enabled !== false;
+      const ntfyOn = !!appState.settings.ntfy_alerts_enabled;
+      document.getElementById('kpiAlertSub').textContent =
+        `${gmailOn ? 'Gmail ON' : 'Gmail OFF'} • ${ntfyOn ? 'ntfy ON' : 'ntfy OFF'}`;
+    }
+
+    function renderHeaderAndKpis() {
+      document.getElementById('hostBadge').textContent = `${appState.hostname} • ${appState.osName}`;
+      const adminEl = document.getElementById('adminBadge');
+      if (appState.isAdmin) {
+        adminEl.textContent = 'ADMIN FIREWALL READY';
+        adminEl.className = 'rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-0.5 font-mono text-[10px] text-emerald-300';
+      } else {
+        adminEl.textContent = 'NON-ADMIN MODE';
+        adminEl.className = 'rounded-md border border-amber-500/35 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] text-amber-300';
+      }
+
+      const posture = document.getElementById('postureBadge');
+      if (appState.protectionStatus === 'CONTAINING') {
+        posture.textContent = 'CONTAINING THREAT';
+        posture.className = 'rounded-full border border-rose-500/50 bg-rose-500/20 px-3 py-1 font-mono text-[11px] font-bold text-rose-300 animate-pulse';
+      } else if (appState.protectionStatus === 'MONITOR_ONLY') {
+        posture.textContent = 'MONITOR ONLY';
+        posture.className = 'rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 font-mono text-[11px] font-bold text-amber-300';
+      } else {
+        posture.textContent = 'ARMED';
+        posture.className = 'rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300';
+      }
+
+      document.getElementById('quickAutonomousToggle').checked = appState.settings.autonomous_mode !== false;
+      document.getElementById('kpiConnections').textContent = String(appState.activeConnections.length);
+      document.getElementById('kpiIncidents').textContent = String(appState.totalIncidents);
+      document.getElementById('kpiBlocked').textContent = String(appState.blockedIps.length);
+
+      document.getElementById('navConnCount').textContent = String(appState.activeConnections.length);
+      document.getElementById('navIncCount').textContent = String(appState.totalIncidents);
+      document.getElementById('navBlockCount').textContent = String(appState.blockedIps.length);
+    }
+
+    function renderConnectionsTable() {
+      const tbody = document.getElementById('connectionsTbody');
+      const q = (document.getElementById('connFilterInput').value || '').trim().toLowerCase();
+      const filtered = appState.activeConnections.filter(c => {
+        if (!q) return true;
+        return (
+          String(c.process_name || '').toLowerCase().includes(q) ||
+          String(c.remote_ip || '').toLowerCase().includes(q) ||
+          String(c.remote_port || '').includes(q) ||
+          String(c.pid || '').includes(q)
+        );
       });
 
-      renderLogs();
-      if (playAudio) playStepTone(step);
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center font-sans text-xs text-slate-500">No matching ESTABLISHED outbound TCP connections right now.</td></tr>`;
+        return;
+      }
+
+      const riskBadge = {
+        high: '<span class="rounded bg-rose-500/20 border border-rose-500/40 px-1.5 py-0.5 text-[10px] font-bold text-rose-300">HIGH RISK</span>',
+        blocked: '<span class="rounded bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 text-[10px] font-bold text-amber-300">BLOCKED IP</span>',
+        trusted: '<span class="rounded bg-emerald-500/15 border border-emerald-500/30 px-1.5 py-0.5 text-[10px] text-emerald-300">TRUSTED</span>',
+        normal: '<span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">NORMAL</span>'
+      };
+
+      tbody.innerHTML = filtered.map(c => `
+        <tr class="${c.risk === 'high' ? 'bg-rose-950/25' : 'hover:bg-slate-900/60'} transition">
+          <td class="px-4 py-2.5 text-slate-100 font-semibold">${esc(c.process_name)}</td>
+          <td class="px-3 py-2.5 text-slate-400">${esc(c.pid)}</td>
+          <td class="px-3 py-2.5 text-cyan-300">${esc(c.remote_ip)}:${esc(c.remote_port)}</td>
+          <td class="px-3 py-2.5">${riskBadge[c.risk] || riskBadge.normal}</td>
+          <td class="px-4 py-2.5 text-right whitespace-nowrap space-x-1.5">
+            ${c.pid > 0 ? `<button onclick="manualKillPid(${Number(c.pid)}, '${esc(c.process_name)}')" class="rounded border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300 hover:bg-rose-500/25 transition">Kill</button>` : ''}
+            <button onclick="manualBlockIp('${esc(c.remote_ip)}', '${esc(c.process_name)}')" class="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/25 transition">Block IP</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderActivityFeed() {
+      const list = document.getElementById('activityFeedList');
+      if (!appState.activityFeed.length) {
+        list.innerHTML = '<div class="text-center text-slate-500 py-6">Waiting for live endpoint activity...</div>';
+        return;
+      }
+      const dotCol = {
+        danger: 'bg-rose-400',
+        warn: 'bg-amber-400',
+        success: 'bg-emerald-400',
+        info: 'bg-cyan-400'
+      };
+      list.innerHTML = appState.activityFeed.slice(0, 20).map(item => `
+        <div class="rounded-xl border border-slate-800/80 bg-slate-900/55 p-2.5">
+          <div class="flex items-center justify-between font-mono text-[10px] text-slate-500">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full ${dotCol[item.level] || 'bg-cyan-400'}"></span>
+              ${esc((item.level || 'info').toUpperCase())}
+            </span>
+            <span>${esc((item.timestamp || '').replace('T', ' ').replace('Z', ' UTC'))}</span>
+          </div>
+          <div class="mt-1 text-[11px] leading-snug text-slate-200">${esc(item.message)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderIncidents() {
+      const list = document.getElementById('incidentsList');
+      const q = (document.getElementById('incFilterInput').value || '').trim().toLowerCase();
+      const filtered = appState.incidents.filter(i => {
+        if (!q) return true;
+        return (
+          String(i.remote_ip || '').toLowerCase().includes(q) ||
+          String(i.process_name || '').toLowerCase().includes(q) ||
+          String(i.ai_summary || '').toLowerCase().includes(q)
+        );
+      });
+
+      if (!filtered.length) {
+        list.innerHTML = `
+          <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-10 text-center">
+            <i class="fa-solid fa-shield-check text-2xl text-emerald-400"></i>
+            <div class="mt-2 text-sm font-semibold text-white">No Intrusions Recorded</div>
+            <p class="mt-1 text-xs text-slate-400">Your endpoint sensor is actively watching outbound connections. Any real threat will appear here with Gemini's reasoning and Gmail alert receipt.</p>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = filtered.map(inc => `
+        <div class="rounded-2xl border border-slate-800 bg-slate-950/80 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <span class="font-mono text-xs font-bold text-rose-300">${esc(inc.remote_ip)}:${esc(inc.remote_port)}</span>
+              <span class="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-cyan-300">${esc(inc.process_name)} (PID ${esc(inc.pid)})</span>
+              <span class="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-300">${esc(inc.status)}</span>
+            </div>
+            <span class="font-mono text-[10px] text-slate-500">#${esc(inc.id)} • ${esc((inc.timestamp || '').replace('T', ' ').replace('Z', ' UTC'))}</span>
+          </div>
+
+          <p class="mt-2.5 text-xs leading-relaxed text-slate-200">
+            ${esc(inc.ai_summary || 'Evaluating live telemetry with Google Gemini...')}
+          </p>
+
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-2.5">
+            <div class="flex flex-wrap gap-1.5 font-mono text-[10px]">
+              <span class="rounded px-2 py-0.5 ${inc.gmail_sent ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
+                <i class="fa-solid fa-envelope mr-1"></i>${inc.gmail_sent ? 'Gmail Sent' : 'Gmail Pending'}
+              </span>
+              <span class="rounded px-2 py-0.5 ${inc.ntfy_sent ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
+                <i class="fa-solid fa-mobile-screen mr-1"></i>${inc.ntfy_sent ? 'ntfy Sent' : 'ntfy N/A'}
+              </span>
+              <span class="rounded px-2 py-0.5 ${inc.process_killed ? 'bg-sky-500/15 text-sky-300 border border-sky-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
+                <i class="fa-solid fa-skull-crossbones mr-1"></i>${inc.process_killed ? 'PID Killed' : 'PID Active'}
+              </span>
+              <span class="rounded px-2 py-0.5 ${inc.ip_blocked ? 'bg-amber-500/15 text-amber-300 border border-amber-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
+                <i class="fa-solid fa-ban mr-1"></i>${inc.ip_blocked ? 'Firewall Blocked' : 'Unblocked'}
+              </span>
+            </div>
+            ${inc.ip_blocked
+              ? `<button onclick="unblockIp('${esc(inc.remote_ip)}')" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20 transition">Unblock ${esc(inc.remote_ip)}</button>`
+              : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderFirewallAndWhitelist() {
+      const bList = document.getElementById('blockedList');
+      if (!appState.blockedIps.length) {
+        bList.innerHTML = '<div class="py-8 text-center text-xs text-slate-500">No IPs currently blocked.</div>';
+      } else {
+        bList.innerHTML = appState.blockedIps.map(b => `
+          <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/65 p-3">
+            <div class="min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-bold text-rose-300">${esc(b.ip)}</span>
+                <span class="rounded px-1.5 py-0.5 font-mono text-[9px] ${b.simulated ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">
+                  ${b.simulated ? 'POLICY ONLY (RUN AS ADMIN)' : 'OS FIREWALL ACTIVE'}
+                </span>
+              </div>
+              <div class="mt-0.5 truncate text-[11px] text-slate-400">${esc(b.reason || 'Blocked by CyberShield')}</div>
+            </div>
+            <button onclick="unblockIp('${esc(b.ip)}')" class="shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition">
+              Unblock
+            </button>
+          </div>
+        `).join('');
+      }
+
+      const wList = document.getElementById('whitelistList');
+      if (!appState.whitelistIps.length) {
+        wList.innerHTML = '<div class="py-8 text-center text-xs text-slate-500">No trusted IPs added yet.</div>';
+      } else {
+        wList.innerHTML = appState.whitelistIps.map(w => `
+          <div class="flex items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/65 p-3">
+            <div class="min-w-0">
+              <div class="font-mono text-xs font-bold text-emerald-300">${esc(w.ip)}</div>
+              <div class="mt-0.5 truncate text-[11px] text-slate-400">${esc(w.label || 'Trusted peer')}</div>
+            </div>
+            <button onclick="removeWhitelistIp('${esc(w.ip)}')" class="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:border-rose-400 hover:text-rose-300 transition">
+              Remove
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderSettingsForm() {
+      const s = appState.settings || {};
+      document.getElementById('setAutonomous').checked = s.autonomous_mode !== false;
+      document.getElementById('setGmailEnabled').checked = s.gmail_alerts_enabled !== false;
+      document.getElementById('setNtfyEnabled').checked = !!s.ntfy_alerts_enabled;
+      document.getElementById('setNtfyTopic').value = s.ntfy_topic || '';
+      document.getElementById('setWatchPorts').value = (s.watch_ports || []).join(', ');
+      document.getElementById('setSuspiciousProcs').value = (s.suspicious_processes || []).join(', ');
+    }
+
+    function renderAll() {
+      renderAuthGate();
+      renderHeaderAndKpis();
+      renderUserProfile();
+      renderConnectionsTable();
+      renderActivityFeed();
+      renderIncidents();
+      renderFirewallAndWhitelist();
+      renderSettingsForm();
     }
 
     // =========================================================================
-    // HANDLE INCOMING WEBSOCKET EVENTS
+    // ACTIONS
     // =========================================================================
-    function handleServerEvent(data) {
-      if (!data || data.type === 'pong') return;
-
-      const prevStep = live.step;
-      if (typeof data.step === 'number') live.step = data.step;
-      if (data.status) live.status = data.status;
-      if (typeof data.ip === 'string') live.ip = data.ip;
-      if (typeof data.port === 'number') live.port = data.port;
-      if (typeof data.pid === 'number') live.pid = data.pid;
-      if (typeof data.process_name === 'string') live.processName = data.process_name;
-      if (typeof data.ai_summary === 'string' && data.ai_summary.trim()) {
-        live.aiSummary = data.ai_summary.trim();
-      } else if (live.step === 0) {
-        live.aiSummary = 'Monitoring outbound TCP sockets in real time. No suspicious connections detected.';
+    window.manualKillPid = async (pid, procName) => {
+      try {
+        const res = await apiJson('/api/process/kill', {
+          method: 'POST',
+          body: JSON.stringify({ pid })
+        });
+        showToast(res.detail || `Terminated ${procName} (PID ${pid})`, res.killed ? 'success' : 'warn');
+      } catch (err) {
+        showToast(err.message, 'danger');
       }
-      if (Array.isArray(data.blocked_ips)) live.blockedIps = data.blocked_ips;
+    };
 
-      if (data.type === 'reset' || live.step === 0) {
-        live.packets = [];
-        live.alertParticles = [];
+    window.manualBlockIp = async (ip, procName) => {
+      try {
+        const res = await apiJson('/api/firewall/block', {
+          method: 'POST',
+          body: JSON.stringify({ ip, reason: `Manual block (${procName || 'console'})` })
+        });
+        showToast(res.detail || `Blocked ${ip}`, 'success');
+      } catch (err) {
+        showToast(err.message, 'danger');
       }
+    };
 
-      if (Array.isArray(data.logs) && data.logs.length > 0 && (data.type === 'snapshot' || data.type === 'reset')) {
-        live.logs = data.logs.slice(0, 3);
-      } else if (data.log_entry) {
-        pushLog(data.log_entry);
+    window.unblockIp = async (ip) => {
+      try {
+        const res = await apiJson('/api/firewall/unblock', {
+          method: 'POST',
+          body: JSON.stringify({ ip })
+        });
+        showToast(res.detail || `Unblocked ${ip}`, 'info');
+      } catch (err) {
+        showToast(err.message, 'danger');
       }
+    };
 
-      const stepChanged = live.step !== prevStep;
-      applyLiveUI(stepChanged && data.type !== 'snapshot');
+    window.removeWhitelistIp = async (ip) => {
+      try {
+        await apiJson(`/api/whitelist/${encodeURIComponent(ip)}`, { method: 'DELETE' });
+        showToast(`Removed ${ip} from whitelist`, 'info');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    };
+
+    async function doLogout() {
+      try {
+        await apiJson('/auth/logout', { method: 'POST' });
+        appState.user = null;
+        renderAll();
+        showToast('Signed out of Google account.', 'info');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
     }
 
     // =========================================================================
-    // WEBSOCKET CONNECTION WITH AUTO-RECONNECT
+    // TAB SWITCHING & FORM WIRING
+    // =========================================================================
+    const TAB_TITLES = {
+      monitor: 'Live Network Monitor',
+      incidents: 'Threats & Incident History',
+      firewall: 'Firewall Rules & Whitelist',
+      copilot: 'Gemini AI Security Copilot',
+      settings: 'Google Account & Policy Settings'
+    };
+
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-tab');
+        appState.activeTab = tab;
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        document.getElementById(`tab-${tab}`).classList.remove('hidden');
+        document.getElementById('viewTitle').textContent = TAB_TITLES[tab] || 'CyberShield Mesh';
+      });
+    });
+
+    document.getElementById('googleLoginBtn').addEventListener('click', async () => {
+      try {
+        const data = await apiJson('/auth/google/login');
+        if (data.auth_url) {
+          window.open(data.auth_url, '_blank', 'noopener');
+          showToast('Complete Google Sign-In in your browser — CyberShield will unlock automatically.', 'info');
+        }
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('toggleOAuthEditBtn').addEventListener('click', () => {
+      document.getElementById('oauthSetupBox').classList.toggle('hidden');
+    });
+
+    document.getElementById('oauthConfigForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const client_id = document.getElementById('oauthClientIdInput').value.trim();
+      const client_secret = document.getElementById('oauthClientSecretInput').value.trim();
+      try {
+        await apiJson('/auth/config', {
+          method: 'POST',
+          body: JSON.stringify({ client_id, client_secret })
+        });
+        appState.oauthConfigured = true;
+        renderAuthGate();
+        showToast('Google OAuth credentials saved! Click "Sign in with Google".', 'success');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('sidebarLogoutBtn').addEventListener('click', doLogout);
+    document.getElementById('settingsLogoutBtn').addEventListener('click', doLogout);
+
+    document.getElementById('quickAutonomousToggle').addEventListener('change', async (e) => {
+      try {
+        await apiJson('/api/settings', {
+          method: 'PUT',
+          body: JSON.stringify({ autonomous_mode: e.target.checked })
+        });
+        showToast(e.target.checked ? 'Autonomous AI Containment ARMED.' : 'Switched to Monitor-Only mode.', 'info');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('connFilterInput').addEventListener('input', renderConnectionsTable);
+    document.getElementById('incFilterInput').addEventListener('input', renderIncidents);
+
+    document.getElementById('refreshConnBtn').addEventListener('click', async () => {
+      try {
+        const data = await apiJson('/api/connections');
+        appState.activeConnections = data.connections || [];
+        renderHeaderAndKpis();
+        renderConnectionsTable();
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('manualBlockForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ipInput = document.getElementById('blockIpInput');
+      const ip = ipInput.value.trim();
+      if (!ip) return;
+      await window.manualBlockIp(ip, 'manual');
+      ipInput.value = '';
+    });
+
+    document.getElementById('resetFirewallBtn').addEventListener('click', async () => {
+      try {
+        const res = await apiJson('/api/firewall/reset', { method: 'POST' });
+        showToast(`Cleared ${(res.cleared_ips || []).length} blocked IP rule(s).`, 'info');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('whitelistForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ipEl = document.getElementById('whitelistIpInput');
+      const lblEl = document.getElementById('whitelistLabelInput');
+      try {
+        await apiJson('/api/whitelist', {
+          method: 'POST',
+          body: JSON.stringify({ ip: ipEl.value.trim(), label: lblEl.value.trim() || 'Trusted peer' })
+        });
+        ipEl.value = '';
+        lblEl.value = '';
+        showToast('Added IP to Trusted Whitelist.', 'success');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ports = document.getElementById('setWatchPorts').value
+        .split(',')
+        .map(x => parseInt(x.trim(), 10))
+        .filter(n => !Number.isNaN(n) && n >= 1 && n <= 65535);
+      const procs = document.getElementById('setSuspiciousProcs').value
+        .split(',')
+        .map(x => x.trim())
+        .filter(Boolean);
+
+      try {
+        await apiJson('/api/settings', {
+          method: 'PUT',
+          body: JSON.stringify({
+            autonomous_mode: document.getElementById('setAutonomous').checked,
+            gmail_alerts_enabled: document.getElementById('setGmailEnabled').checked,
+            ntfy_alerts_enabled: document.getElementById('setNtfyEnabled').checked,
+            ntfy_topic: document.getElementById('setNtfyTopic').value.trim(),
+            watch_ports: ports,
+            suspicious_processes: procs
+          })
+        });
+        showToast('Policy & alert settings saved.', 'success');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('testAlertBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('testAlertBtn');
+      const box = document.getElementById('testAlertReceipt');
+      btn.disabled = true;
+      try {
+        const res = await apiJson('/api/alerts/test', { method: 'POST' });
+        box.classList.remove('hidden');
+        const g = res.gmail || {};
+        const n = res.ntfy || {};
+        box.innerHTML = `
+          <div><strong>Gmail:</strong> ${g.sent ? `<span class="text-emerald-300">DELIVERED to ${esc(g.to)} (id=${esc(g.message_id)})</span>` : `<span class="text-rose-300">FAILED (${esc(g.error || 'disabled')})</span>`}</div>
+          <div class="mt-1"><strong>ntfy:</strong> ${n.sent ? `<span class="text-cyan-300">DELIVERED to topic ${esc(n.topic)}</span>` : `<span class="text-slate-400">${esc(n.skipped ? 'Disabled' : (n.error || 'Failed'))}</span>`}</div>
+        `;
+        showToast(res.any_delivered ? 'Test security alert delivered!' : 'Test alert did not deliver — check receipt.', res.any_delivered ? 'success' : 'warn');
+      } catch (err) {
+        showToast(err.message, 'danger');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // =========================================================================
+    // GEMINI AI COPILOT
+    // =========================================================================
+    const copilotMessages = document.getElementById('copilotMessages');
+    const copilotInput = document.getElementById('copilotInput');
+    const copilotSendBtn = document.getElementById('copilotSendBtn');
+
+    function appendCopilot(role, text, actions = []) {
+      const wrap = document.createElement('div');
+      if (role === 'user') {
+        wrap.className = 'ml-auto max-w-xl rounded-xl border border-cyan-500/35 bg-cyan-500/15 px-4 py-2.5 text-xs text-cyan-100';
+        wrap.textContent = text;
+      } else {
+        wrap.className = 'max-w-2xl rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-3 text-xs leading-relaxed text-slate-200';
+        const chips = (actions && actions.length)
+          ? `<div class="mt-2 flex flex-wrap gap-1.5">${actions.map(a => `<span class="rounded bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 font-mono text-[10px] text-emerald-300"><i class="fa-solid fa-wrench mr-1"></i>${esc(a.tool)}(${esc(a.target || '')})</span>`).join('')}</div>`
+          : '';
+        wrap.innerHTML = `<div>${esc(text)}</div>${chips}`;
+      }
+      copilotMessages.appendChild(wrap);
+      copilotMessages.scrollTop = copilotMessages.scrollHeight;
+      return wrap;
+    }
+
+    async function sendCopilotMessage(message) {
+      if (!message) return;
+      copilotInput.value = '';
+      copilotInput.disabled = true;
+      copilotSendBtn.disabled = true;
+      appendCopilot('user', message);
+      const pending = appendCopilot('ai', 'Reasoning with Gemini...');
+      pending.classList.add('italic', 'text-slate-400');
+
+      try {
+        const res = await apiJson('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({ message })
+        });
+        pending.remove();
+        appendCopilot('ai', res.reply || 'Done.', res.actions || []);
+      } catch (err) {
+        pending.remove();
+        appendCopilot('ai', `Error: ${err.message}`);
+      } finally {
+        copilotInput.disabled = false;
+        copilotSendBtn.disabled = false;
+        copilotInput.focus();
+      }
+    }
+
+    document.getElementById('copilotForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      sendCopilotMessage(copilotInput.value.trim());
+    });
+
+    document.querySelectorAll('.copilot-chip').forEach(btn => {
+      btn.addEventListener('click', () => sendCopilotMessage(btn.getAttribute('data-prompt')));
+    });
+
+    // =========================================================================
+    // LIVE WEBSOCKET STREAM
     // =========================================================================
     let ws = null;
     let reconnectTimer = null;
 
-    function setWsBadge(connected) {
-      live.wsConnected = connected;
-      const badge = document.getElementById('wsBadge');
+    function setWsStatus(connected) {
+      const pill = document.getElementById('wsStatusPill');
       const dot = document.getElementById('wsDot');
-      const label = document.getElementById('wsLabel');
+      const text = document.getElementById('wsText');
       if (connected) {
-        badge.className = 'hidden sm:inline-flex items-center gap-1.5 rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 font-mono text-[10px] text-emerald-300';
+        pill.className = 'inline-flex items-center gap-1 rounded bg-emerald-500/15 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300';
         dot.className = 'h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse';
-        label.textContent = 'LIVE WS';
+        text.textContent = 'LIVE';
       } else {
-        badge.className = 'hidden sm:inline-flex items-center gap-1.5 rounded bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 font-mono text-[10px] text-amber-300';
+        pill.className = 'inline-flex items-center gap-1 rounded bg-amber-500/15 px-1.5 py-0.5 font-mono text-[9px] text-amber-300';
         dot.className = 'h-1.5 w-1.5 rounded-full bg-amber-400';
-        label.textContent = 'RECONNECTING';
+        text.textContent = 'SYNC';
+      }
+    }
+
+    function applyServerMessage(msg) {
+      if (!msg || msg.type === 'pong') return;
+
+      if (msg.type === 'snapshot') {
+        appState.user = msg.user || null;
+        appState.oauthConfigured = !!msg.oauth_configured;
+        appState.redirectUri = msg.redirect_uri || appState.redirectUri;
+        appState.protectionStatus = msg.protection_status || 'ARMED';
+        appState.hostname = msg.hostname || '--';
+        appState.osName = msg.os_name || '--';
+        appState.isAdmin = !!msg.is_admin;
+        appState.geminiModel = msg.gemini_model || 'gemini-3.5-flash-lite';
+        appState.activeConnections = msg.active_connections || [];
+        appState.incidents = msg.incidents || [];
+        appState.totalIncidents = msg.total_incidents || 0;
+        appState.blockedIps = msg.blocked_ips || [];
+        appState.whitelistIps = msg.whitelist_ips || [];
+        appState.settings = msg.settings || {};
+        appState.activityFeed = msg.activity_feed || [];
+        renderAll();
+        return;
+      }
+
+      if (msg.protection_status) appState.protectionStatus = msg.protection_status;
+
+      if (msg.type === 'auth_updated') {
+        const wasSignedOut = !appState.user;
+        appState.user = msg.user || null;
+        appState.oauthConfigured = !!msg.oauth_configured;
+        renderAll();
+        if (wasSignedOut && appState.user) {
+          showToast(`Signed in as ${appState.user.email}. Gmail alerts active.`, 'success');
+        }
+      } else if (msg.type === 'connections_update') {
+        appState.activeConnections = msg.active_connections || [];
+        renderHeaderAndKpis();
+        renderConnectionsTable();
+      } else if (msg.type === 'incident_updated') {
+        appState.incidents = msg.incidents || appState.incidents;
+        appState.totalIncidents = msg.total_incidents ?? appState.incidents.length;
+        renderHeaderAndKpis();
+        renderIncidents();
+      } else if (msg.type === 'firewall_updated') {
+        appState.blockedIps = msg.blocked_ips || [];
+        appState.whitelistIps = msg.whitelist_ips || [];
+        renderHeaderAndKpis();
+        renderFirewallAndWhitelist();
+      } else if (msg.type === 'settings_updated') {
+        appState.settings = msg.settings || {};
+        renderHeaderAndKpis();
+        renderUserProfile();
+        renderSettingsForm();
+      } else if (msg.type === 'activity' && msg.entry) {
+        appState.activityFeed.unshift(msg.entry);
+        appState.activityFeed = appState.activityFeed.slice(0, 30);
+        renderHeaderAndKpis();
+        renderActivityFeed();
+        if (msg.entry.level === 'danger') {
+          showToast(msg.entry.message, 'danger');
+        }
       }
     }
 
@@ -643,389 +1193,33 @@
       }
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host || '127.0.0.1:8000';
-      const url = `${proto}//${host}/ws`;
-
       try {
-        ws = new WebSocket(url);
+        ws = new WebSocket(`${proto}//${host}/ws`);
       } catch (_) {
-        setWsBadge(false);
+        setWsStatus(false);
         reconnectTimer = setTimeout(connectWebSocket, 1500);
         return;
       }
 
-      ws.onopen = () => {
-        setWsBadge(true);
+      ws.onopen = () => setWsStatus(true);
+      ws.onmessage = (e) => {
+        try { applyServerMessage(JSON.parse(e.data)); } catch (_) {}
       };
-
-      ws.onmessage = (evt) => {
-        try {
-          const parsed = JSON.parse(evt.data);
-          handleServerEvent(parsed);
-        } catch (_) {}
-      };
-
       ws.onclose = () => {
-        setWsBadge(false);
+        setWsStatus(false);
         reconnectTimer = setTimeout(connectWebSocket, 1500);
       };
-
-      ws.onerror = () => {
-        try { ws.close(); } catch (_) {}
-      };
+      ws.onerror = () => { try { ws.close(); } catch (_) {} };
     }
 
-    // Periodic keepalive ping
     setInterval(() => {
       if (ws && ws.readyState === WebSocket.OPEN) {
         try { ws.send('ping'); } catch (_) {}
       }
     }, 25000);
 
-    // =========================================================================
-    // CANVAS ANIMATION: ATTACKER SOURCE -> YOUR PC + AI AGENT -> MOBILE PHONE
-    // =========================================================================
-    const canvas = document.getElementById('flowCanvas');
-    const ctx = canvas.getContext('2d');
-    let lastTs = performance.now();
-
-    function resizeCanvas() {
-      const dpr = window.devicePixelRatio || 1;
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = Math.max(300, Math.floor(rect.width * dpr));
-      canvas.height = Math.max(200, Math.floor(rect.height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    function drawNodeBox(x, y, w, h, title, sub, borderCol, fillCol, titleCol) {
-      ctx.save();
-      ctx.fillStyle = fillCol;
-      ctx.strokeStyle = borderCol;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(x - w / 2, y - h / 2, w, h, 14);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = titleCol;
-      ctx.font = 'bold 12px "Space Grotesk", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(title, x, y - 4);
-
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '10px "JetBrains Mono", monospace';
-      ctx.fillText(sub, x, y + 13);
-      ctx.restore();
-    }
-
-    function renderFrame(now) {
-      const dt = Math.min(0.08, (now - lastTs) / 1000);
-      lastTs = now;
-      live.time += dt;
-
-      const rect = canvas.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-      ctx.clearRect(0, 0, w, h);
-
-      const srcX = Math.max(92, w * 0.17);
-      const srcY = h * 0.54;
-
-      const pcX = w * 0.54;
-      const pcY = h * 0.54;
-
-      const phoneX = Math.min(w - 86, w * 0.85);
-      const phoneY = Math.max(110, h * 0.25);
-
-      const step = live.step;
-      const isIdle = step === 0;
-      const isBlocked = step >= 5;
-      const isSevered = step >= 4;
-      const isDefending = step >= 2;
-
-      // Subtle idle radar pulse around PC shield when monitoring
-      if (isIdle) {
-        const pulse = (live.time * 0.55) % 1;
-        const radius = 58 + pulse * 68;
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(pcX, pcY, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(56, 189, 248, ${(1 - pulse) * 0.28})`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // 1. Connection line between Attacker Source and PC
-      ctx.save();
-      if (isIdle) {
-        ctx.setLineDash([4, 8]);
-        ctx.strokeStyle = 'rgba(100, 116, 139, 0.25)';
-        ctx.lineWidth = 1.5;
-      } else if (isSevered) {
-        ctx.setLineDash([7, 7]);
-        ctx.strokeStyle = 'rgba(100, 116, 139, 0.35)';
-        ctx.lineWidth = 2;
-      } else {
-        ctx.setLineDash([]);
-        ctx.strokeStyle = step === 1 ? 'rgba(244, 63, 94, 0.65)' : 'rgba(56, 189, 248, 0.5)';
-        ctx.lineWidth = 2.5;
-      }
-      ctx.beginPath();
-      ctx.moveTo(srcX + 60, srcY);
-      ctx.lineTo(pcX - 66, pcY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Visual X cut mark when connection is severed (Step 4+)
-      if (isSevered) {
-        const midX = (srcX + pcX) * 0.5;
-        const midY = srcY;
-        ctx.strokeStyle = '#fb7185';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(midX - 10, midY - 10);
-        ctx.lineTo(midX + 10, midY + 10);
-        ctx.moveTo(midX + 10, midY - 10);
-        ctx.lineTo(midX - 10, midY + 10);
-        ctx.stroke();
-
-        ctx.fillStyle = '#fda4af';
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('LINK CUT', midX, midY - 16);
-      }
-
-      // Shield barrier line when source is blocked (Step 5)
-      const wallX = pcX - 92;
-      if (isBlocked) {
-        ctx.strokeStyle = '#34d399';
-        ctx.lineWidth = 3.5;
-        ctx.beginPath();
-        ctx.moveTo(wallX, pcY - 48);
-        ctx.lineTo(wallX, pcY + 48);
-        ctx.stroke();
-
-        ctx.fillStyle = '#6ee7b7';
-        ctx.font = 'bold 10px "JetBrains Mono", monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('BLOCKED', wallX, pcY - 56);
-      }
-
-      // 2. Notification path from AI Agent/PC to Mobile Phone
-      ctx.strokeStyle = step >= 3 ? 'rgba(52, 211, 153, 0.58)' : 'rgba(148, 163, 184, 0.22)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 6]);
-      ctx.beginPath();
-      ctx.moveTo(pcX + 26, pcY - 42);
-      ctx.quadraticCurveTo(pcX + 42, phoneY + 20, phoneX - 48, phoneY + 8);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-
-      // 3. Spawn & animate live traffic packets (only when active step >= 1)
-      if (!isIdle) {
-        const spawnRate = step === 1 ? 0.1 : (isBlocked ? 0.06 : 0.04);
-        if (Math.random() < spawnRate && live.packets.length < 14) {
-          live.packets.push({
-            t: 0,
-            speed: (isBlocked ? 0.022 : 0.018) + Math.random() * 0.006,
-            yOffset: (Math.random() - 0.5) * 14
-          });
-        }
-      }
-
-      for (let i = live.packets.length - 1; i >= 0; i--) {
-        const p = live.packets[i];
-        p.t += p.speed;
-
-        const startX = srcX + 62;
-        const endX = pcX - 66;
-        const bounceX = wallX - 6;
-
-        let px = startX + (endX - startX) * p.t;
-        let py = srcY + p.yOffset + Math.sin(live.time * 6 + i) * 2;
-        let col = step === 1 ? '#fb7185' : '#38bdf8';
-
-        if (isBlocked && px >= bounceX) {
-          const over = px - bounceX;
-          px = bounceX - over * 1.4;
-          py = srcY + p.yOffset - over * 0.7;
-          col = '#34d399';
-        } else if (isSevered && p.t > 0.45) {
-          col = '#94a3b8';
-        }
-
-        ctx.beginPath();
-        ctx.arc(px, py, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = col;
-        ctx.fill();
-
-        if (p.t >= 1 || (isBlocked && px < startX - 10)) {
-          live.packets.splice(i, 1);
-        }
-      }
-
-      // 4. Spawn & animate mobile push alert pulse (Step 3+)
-      if (step >= 3 && Math.random() < 0.08 && live.alertParticles.length < 6) {
-        live.alertParticles.push({ t: 0 });
-      }
-      for (let i = live.alertParticles.length - 1; i >= 0; i--) {
-        const a = live.alertParticles[i];
-        a.t += 0.025;
-        const u = Math.min(1, a.t);
-        const ax = (1 - u) * (1 - u) * (pcX + 26) + 2 * (1 - u) * u * (pcX + 42) + u * u * (phoneX - 48);
-        const ay = (1 - u) * (1 - u) * (pcY - 42) + 2 * (1 - u) * u * (phoneY + 20) + u * u * (phoneY + 8);
-
-        ctx.beginPath();
-        ctx.arc(ax, ay, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#34d399';
-        ctx.fill();
-
-        if (a.t >= 1) live.alertParticles.splice(i, 1);
-      }
-
-      // 5. Attacker Source Node
-      const srcSub = isIdle
-        ? 'NO ACTIVE THREAT'
-        : (isBlocked ? `BLOCKED: ${live.ip}` : (live.ip ? `${live.ip}:${live.port || ''}` : 'EXTERNAL PEER'));
-      drawNodeBox(
-        srcX, srcY, 124, 58,
-        'ATTACKER SOURCE',
-        srcSub,
-        isIdle ? '#334155' : (isBlocked ? '#34d399' : '#fb7185'),
-        isIdle ? 'rgba(15, 23, 42, 0.85)' : (isBlocked ? 'rgba(6, 78, 59, 0.35)' : 'rgba(136, 19, 55, 0.35)'),
-        isIdle ? '#94a3b8' : (isBlocked ? '#a7f3d0' : '#fecdd3')
-      );
-
-      // 6. Your PC + AI Agent Node
-      const pcSub = isIdle
-        ? 'MONITORING'
-        : (isDefending ? 'GEMINI ACTIVE' : (live.processName ? live.processName.slice(0, 18) : 'INTRUSION'));
-      drawNodeBox(
-        pcX, pcY, 136, 68,
-        'YOUR PC + AI AGENT',
-        pcSub,
-        isIdle ? '#34d399' : (isDefending ? '#38bdf8' : '#fb7185'),
-        isIdle ? 'rgba(6, 78, 59, 0.28)' : (isDefending ? 'rgba(12, 74, 110, 0.45)' : 'rgba(136, 19, 55, 0.28)'),
-        '#f8fafc'
-      );
-
-      // 7. Mobile Phone Node
-      drawNodeBox(
-        phoneX, phoneY, 118, 56,
-        'MOBILE PHONE',
-        step >= 3 ? 'ALERT SENT' : 'STANDBY',
-        step >= 3 ? '#34d399' : '#475569',
-        step >= 3 ? 'rgba(6, 78, 59, 0.35)' : 'rgba(15, 23, 42, 0.88)',
-        step >= 3 ? '#a7f3d0' : '#e2e8f0'
-      );
-
-      requestAnimationFrame(renderFrame);
-    }
-
-    // =========================================================================
-    // HEADER BUTTON CONTROLS & AI CHAT WIRING
-    // =========================================================================
-    document.getElementById('soundToggleBtn').addEventListener('click', () => {
-      live.soundOn = !live.soundOn;
-      document.getElementById('soundIcon').className = live.soundOn
-        ? 'fa-solid fa-volume-high text-xs'
-        : 'fa-solid fa-volume-xmark text-xs text-slate-500';
-    });
-
-    document.getElementById('simulateBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('simulateBtn');
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/simulate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      } catch (err) {
-        pushLog(`[ERR] Simulate request failed: ${err.message}`);
-      } finally {
-        setTimeout(() => { btn.disabled = false; }, 1200);
-      }
-    });
-
-    document.getElementById('resetBtn').addEventListener('click', async () => {
-      const btn = document.getElementById('resetBtn');
-      btn.disabled = true;
-      try {
-        const res = await fetch('/api/reset', { method: 'POST' });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      } catch (err) {
-        pushLog(`[ERR] Reset request failed: ${err.message}`);
-      } finally {
-        setTimeout(() => { btn.disabled = false; }, 600);
-      }
-    });
-
-    const chatMessages = document.getElementById('chatMessages');
-    const chatForm = document.getElementById('chatForm');
-    const chatInput = document.getElementById('chatInput');
-    const chatSendBtn = document.getElementById('chatSendBtn');
-
-    function appendChatBubble(role, text, actions = []) {
-      const div = document.createElement('div');
-      if (role === 'user') {
-        div.className = 'ml-4 rounded-lg border border-cyan-500/30 bg-cyan-500/15 px-2.5 py-1.5 text-cyan-100';
-        div.textContent = text;
-      } else {
-        div.className = 'mr-2 rounded-lg border border-slate-800 bg-slate-950/85 px-2.5 py-1.5 text-slate-200';
-        const actionHtml = (actions && actions.length > 0)
-          ? `<div class="mt-1 flex flex-wrap gap-1">${actions.map(a => `<span class="rounded bg-emerald-500/20 border border-emerald-500/35 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300"><i class="fa-solid fa-wrench mr-1"></i>${escapeHtml(a.tool)}(${escapeHtml(a.ip || '')})</span>`).join('')}</div>`
-          : '';
-        div.innerHTML = `<div>${escapeHtml(text)}</div>${actionHtml}`;
-      }
-      chatMessages.appendChild(div);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-      return div;
-    }
-
-    chatForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const message = chatInput.value.trim();
-      if (!message) return;
-
-      chatInput.value = '';
-      chatInput.disabled = true;
-      chatSendBtn.disabled = true;
-
-      appendChatBubble('user', message);
-      const thinkingEl = appendChatBubble('ai', 'Thinking with Gemini...');
-      thinkingEl.classList.add('text-slate-400', 'italic');
-
-      try {
-        const res = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message })
-        });
-        const data = await res.json();
-        thinkingEl.remove();
-        appendChatBubble('ai', data.reply || 'Done.', data.actions || []);
-      } catch (err) {
-        thinkingEl.remove();
-        appendChatBubble('ai', `Unable to reach CyberShield backend (${err.message}).`);
-      } finally {
-        chatInput.disabled = false;
-        chatSendBtn.disabled = false;
-        chatInput.focus();
-      }
-    });
-
-    // =========================================================================
-    // BOOTSTRAP
-    // =========================================================================
-    window.addEventListener('resize', resizeCanvas);
     window.addEventListener('DOMContentLoaded', () => {
-      resizeCanvas();
-      applyLiveUI(false);
       connectWebSocket();
-      requestAnimationFrame(renderFrame);
     });
   </script>
 </body>
