@@ -260,6 +260,7 @@ def block_ip_firewall(
     detail = ""
 
     if is_windows() and is_admin():
+        remote_spec = f"{clean_ip}/32" if parsed.version == 4 else f"{clean_ip}/128"
         _run_cmd(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_out}"])
         _run_cmd(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_in}"])
         ok_out, out_msg = _run_cmd(
@@ -272,7 +273,7 @@ def block_ip_firewall(
                 f"name={rule_out}",
                 "dir=out",
                 "action=block",
-                f"remoteip={clean_ip}",
+                f"remoteip={remote_spec}",
             ]
         )
         ok_in, in_msg = _run_cmd(
@@ -285,11 +286,11 @@ def block_ip_firewall(
                 f"name={rule_in}",
                 "dir=in",
                 "action=block",
-                f"remoteip={clean_ip}",
+                f"remoteip={remote_spec}",
             ]
         )
         if ok_out and ok_in:
-            detail = f"Windows Firewall rules active: {rule_out}, {rule_in}"
+            detail = f"Windows Firewall single-host ({remote_spec}) rules active: {rule_out}, {rule_in}"
         else:
             simulated = True
             detail = f"[SIMULATED BLOCK - RUN AS ADMIN] netsh: out=({out_msg}) in=({in_msg})"

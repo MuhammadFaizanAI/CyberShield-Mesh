@@ -92,6 +92,41 @@ def _parse_float(raw: str, default: float) -> float:
         return default
 
 
+DEFAULT_LOLBINS: frozenset[str] = frozenset(
+    {
+        "curl.exe",
+        "powershell.exe",
+        "pwsh.exe",
+        "cmd.exe",
+        "certutil.exe",
+        "bitsadmin.exe",
+        "mshta.exe",
+        "rundll32.exe",
+        "regsvr32.exe",
+        "ssh.exe",
+        "scp.exe",
+        "sftp.exe",
+        "ncat.exe",
+        "nc.exe",
+        "python.exe",
+        "python3.exe",
+    }
+)
+
+STANDARD_WEB_PORTS: frozenset[int] = frozenset({53, 80, 123, 443, 5228, 8080, 8443})
+
+TRUSTED_BROWSERS: frozenset[str] = frozenset(
+    {
+        "chrome.exe",
+        "msedge.exe",
+        "firefox.exe",
+        "brave.exe",
+        "vivaldi.exe",
+        "opera.exe",
+    }
+)
+
+
 @dataclass
 class Settings:
     project_root: Path = PROJECT_ROOT
@@ -157,8 +192,12 @@ class Settings:
                 "nc.exe",
                 "nc",
             }
+            | set(DEFAULT_LOLBINS)
         )
     )
+    lolbins: frozenset[str] = field(default_factory=lambda: DEFAULT_LOLBINS)
+    standard_web_ports: frozenset[int] = field(default_factory=lambda: STANDARD_WEB_PORTS)
+    trusted_browsers: frozenset[str] = field(default_factory=lambda: TRUSTED_BROWSERS)
 
     @property
     def has_valid_gemini_key(self) -> bool:

@@ -31,11 +31,16 @@ logger = logging.getLogger("cybershield.agent")
 
 DEFENSE_SYSTEM_PROMPT = (
     "You are CyberShield Mesh, an autonomous endpoint defense AI protecting a user's PC. "
-    "Evaluate the live outbound connection telemetry carefully. If it appears to be "
-    "unauthorized data exfiltration, a reverse shell, or a suspicious non-whitelisted "
-    "connection, you MUST call `send_user_alert`, `kill_process`, and `block_ip_firewall` "
-    "in that exact order, then return a concise 2-sentence plain-English explanation of "
-    "what you stopped and why."
+    "Evaluate the live outbound connection forensics (`process_name`, `parent_name`, `cmdline`, "
+    "`remote_ip`, `remote_port`, and MITRE ATT&CK `trigger_reason`). "
+    "Whenever a Living-off-the-Land Binary (LOLBin such as `curl.exe`, `powershell.exe`, "
+    "`pwsh.exe`, `cmd.exe`, `certutil.exe`, `bitsadmin.exe`, `ssh.exe`, `scp.exe`, `python.exe`) "
+    "or any unauthorized user-space process transfers/uploads files, opens a reverse shell or "
+    "tunnel, runs encoded commands, or connects to an unapproved peer on a non-standard port, "
+    "you MUST immediately call `send_user_alert`, `kill_process`, and `block_ip_firewall` "
+    "(which enforces a single-host /32 bidirectional firewall rule) in that exact order, then "
+    "return a concise 2-sentence plain-English explanation citing the process, behavior/MITRE "
+    "technique, and remote IP:port that you stopped."
 )
 
 COPILOT_SYSTEM_PROMPT = (
@@ -67,6 +72,8 @@ def _run_defense_sync(event: dict[str, Any], incident_id: int) -> dict[str, Any]
     local_port = int(event.get("local_port", 0) or 0)
     pid = int(event.get("pid", 0) or 0)
     process_name = str(event.get("process_name", "unknown"))
+    cmdline = str(event.get("cmdline", "") or process_name)
+    parent_name = str(event.get("parent_name", "unknown") or "unknown")
     timestamp = str(event.get("timestamp", ""))
     trigger_reason = str(event.get("trigger_reason", ""))
 
@@ -105,16 +112,20 @@ def _run_defense_sync(event: dict[str, Any], incident_id: int) -> dict[str, Any]
 
     user = get_current_user()
     telemetry_prompt = (
-        "Live outbound TCP socket alert from CyberShield endpoint sensor:\n"
+        "Live outbound TCP socket alert from CyberShield behavioral sensor:\n"
         f"- remote_ip: {remote_ip}\n"
         f"- remote_port: {remote_port}\n"
         f"- local_port: {local_port}\n"
         f"- pid: {pid}\n"
         f"- process_name: {process_name}\n"
+        f"- parent_name: {parent_name}\n"
+        f"- cmdline: {cmdline}\n"
         f"- trigger_reason: {trigger_reason}\n"
         f"- timestamp: {timestamp}\n"
         f"- signed_in_owner_email: {user['email'] if user else 'not_signed_in'}\n\n"
-        "Assess this live outbound connection now and execute containment tools if malicious."
+        "Assess this live outbound connection now. If unauthorized exfiltration, tunneling, "
+        "reverse shell, or anomalous non-whitelisted outbound traffic, execute "
+        "`send_user_alert`, `kill_process`, and `block_ip_firewall` immediately."
     )
 
     ai_summary = ""

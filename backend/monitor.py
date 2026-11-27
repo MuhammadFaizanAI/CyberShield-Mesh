@@ -1,11 +1,13 @@
 """Real-time background psutil TCP socket monitor.
 
 Continuously inspects live ESTABLISHED non-loopback TCP sockets every second:
-1. Streams real active connections to the Endpoint Security Console over /ws.
-2. Evaluates connections against dynamic Watch Ports & Suspicious Binaries while
-   respecting the Trusted IP Whitelist.
-3. Persists incidents to SQLite and triggers Gemini autonomous containment
-   (or alert-only mode when Autonomous Mode is toggled off).
+1. Streams real active connections and system bandwidth telemetry to the
+   Endpoint Security Console over /ws.
+2. Evaluates connections using behavioral rules (LOLBins on any port, anomalous
+   non-standard ports, and dynamic Watch Ports / Suspicious Binaries) while
+   respecting the Trusted IP Whitelist and standard browser web traffic.
+3. Enriches events with cmdline, parent process name, and MITRE ATT&CK hints
+   for Gemini autonomous triage and containment.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import asyncio
 import ipaddress
 import logging
 import os
+import re
 import time
 from typing import Any, Optional
 
@@ -21,11 +24,22 @@ import psutil
 
 from backend.agent import analyze_and_defend
 from backend.alerts import dispatch_user_alert
-from backend.config import settings
+from backend.config import (
+    DEFAULT_LOLBINS,
+    STANDARD_WEB_PORTS,
+    TRUSTED_BROWSERS,
+    settings,
+)
 from backend.db import db, utc_now_iso
 from backend.state import state, ws_manager
 
 logger = logging.getLogger("cybershield.monitor")
+
+_CURL_EXFIL_RE = re.compile(
+    r"(?:^|\s)(?:-t|--upload-file|-d|--data|--data-raw|--data-binary|-f|--form)(?:\s|=|$)",
+    re.IGNORECASE,
+)
+_SSH_TUNNEL_RE = re.compile(r"(?:^|\s)-(?:[a-z]*[rld])(?:\s|$)", re.IGNORECASE)
 
 
 def _is_ignored_ip(ip: str) -> bool:
@@ -33,9 +47,62 @@ def _is_ignored_ip(ip: str) -> bool:
         return True
     try:
         addr = ipaddress.ip_address(ip)
-        return addr.is_loopback or addr.is_unspecified
+        return addr.is_loopback or addr.is_unspecified or addr.is_link_local
     except ValueError:
         return True
+
+
+def _get_protected_pids() -> set[int]:
+    """Return PIDs belonging to CyberShield Mesh itself so it never self-terminates."""
+    own_pid = os.getpid()
+    protected = {own_pid}
+    try:
+        curr = psutil.Process(own_pid)
+        electron_root = None
+        for parent in curr.parents():
+            pname = parent.name().lower()
+            if pname in {"python.exe", "python", "python3", "node.exe", "node", "electron.exe", "electron"}:
+                protected.add(parent.pid)
+                if pname in {"electron.exe", "electron"}:
+                    electron_root = parent
+        if electron_root is not None:
+            try:
+                for child in electron_root.children(recursive=True):
+                    if child.name().lower() in {"electron.exe", "electron"}:
+                        protected.add(child.pid)
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+    except Exception:
+        pass
+    return protected
+
+
+def _classify_trigger_reason(
+    process_name: str,
+    cmdline: str,
+    parent_name: str,
+    remote_port: int,
+    port_flagged: bool,
+    proc_flagged: bool,
+) -> str:
+    cmd_lower = cmdline.lower()
+    proc_lower = process_name.lower()
+
+    if proc_lower in {"curl.exe", "curl"} and _CURL_EXFIL_RE.search(cmdline):
+        return f"MITRE_T1048_exfiltration:{process_name} parent={parent_name} cmd='{cmdline}'"
+    if proc_lower in {"powershell.exe", "pwsh.exe", "pwsh"} and any(
+        tok in cmd_lower
+        for tok in ("tcpclient", "socket", "-enc", "invoke-webrequest", "invoke-restmethod", "iwr ")
+    ):
+        return f"MITRE_T1059_001_raw_socket:{process_name} parent={parent_name} cmd='{cmdline}'"
+    if proc_lower in {"ssh.exe", "scp.exe", "sftp.exe", "ssh", "scp", "sftp"}:
+        tag = "MITRE_T1572_tunnel" if _SSH_TUNNEL_RE.search(cmdline) else "MITRE_T1572_tunnel_or_transfer"
+        return f"{tag}:{process_name} parent={parent_name} cmd='{cmdline}'"
+    if port_flagged:
+        return f"watch_port:{remote_port} proc={process_name} parent={parent_name} cmd='{cmdline}'"
+    if proc_flagged:
+        return f"suspicious_or_lolbin:{process_name} parent={parent_name} cmd='{cmdline}'"
+    return f"anomalous_outbound_port:{process_name}->{remote_port} parent={parent_name} cmd='{cmdline}'"
 
 
 def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -45,11 +112,12 @@ def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
     suspicious_procs = {
         str(p).lower()
         for p in cfg.get("suspicious_processes", list(settings.suspicious_processes))
-    }
+    } | set(DEFAULT_LOLBINS)
+
     blocked_set = {r["ip"] for r in db.list_blocked_ips()}
     whitelist_set = {r["ip"] for r in db.list_whitelist_ips()}
+    protected_pids = _get_protected_pids()
 
-    own_pid = os.getpid()
     active_list: list[dict[str, Any]] = []
     flagged_events: list[dict[str, Any]] = []
 
@@ -62,7 +130,7 @@ def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
         logger.warning("Failed to poll net_connections: %s", exc)
         return active_list, flagged_events
 
-    proc_cache: dict[int, str] = {}
+    proc_cache: dict[int, tuple[str, str, str]] = {}
 
     for conn in connections:
         if conn.status != psutil.CONN_ESTABLISHED:
@@ -82,18 +150,41 @@ def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
         if pid > 0:
             if pid not in proc_cache:
                 try:
-                    proc_cache[pid] = psutil.Process(pid).name()
+                    proc = psutil.Process(pid)
+                    name = proc.name()
+                    try:
+                        raw_cmd = proc.cmdline()
+                        cmd = (" ".join(raw_cmd) if raw_cmd else name)[:300]
+                    except (psutil.AccessDenied, psutil.ZombieProcess):
+                        cmd = name
+                    try:
+                        parent = proc.parent()
+                        p_name = parent.name() if parent else "unknown"
+                    except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                        p_name = "unknown"
+                    proc_cache[pid] = (name, cmd, p_name)
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    proc_cache[pid] = "unknown"
-            process_name = proc_cache[pid]
+                    proc_cache[pid] = ("unknown", "", "unknown")
+            process_name, cmdline, parent_name = proc_cache[pid]
         else:
-            process_name = "system"
+            process_name, cmdline, parent_name = "system", "", "system"
 
+        proc_lower = process_name.lower()
         is_whitelisted = remote_ip in whitelist_set
         is_blocked = remote_ip in blocked_set
+        is_protected = pid in protected_pids
+        is_browser_web = (proc_lower in TRUSTED_BROWSERS) and (remote_port in STANDARD_WEB_PORTS)
+
         port_flagged = remote_port in watch_ports
-        proc_flagged = process_name.lower() in suspicious_procs
-        is_suspicious = (port_flagged or proc_flagged) and not is_whitelisted and pid != own_pid
+        proc_flagged = proc_lower in suspicious_procs
+        anomalous_port = (remote_port not in STANDARD_WEB_PORTS) and (pid > 4)
+
+        is_suspicious = (
+            (port_flagged or proc_flagged or anomalous_port)
+            and not is_whitelisted
+            and not is_browser_web
+            and not is_protected
+        )
 
         risk = "normal"
         if is_suspicious:
@@ -106,6 +197,8 @@ def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
         entry = {
             "pid": pid,
             "process_name": process_name,
+            "cmdline": cmdline,
+            "parent_name": parent_name,
             "local_ip": local_ip,
             "local_port": local_port,
             "remote_ip": remote_ip,
@@ -117,6 +210,14 @@ def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
 
         if is_suspicious and pid > 0:
             if not state.is_pair_in_cooldown(pid, remote_ip, settings.incident_cooldown_sec):
+                reason = _classify_trigger_reason(
+                    process_name=process_name,
+                    cmdline=cmdline,
+                    parent_name=parent_name,
+                    remote_port=remote_port,
+                    port_flagged=port_flagged,
+                    proc_flagged=proc_flagged,
+                )
                 flagged_events.append(
                     {
                         "remote_ip": remote_ip,
@@ -124,12 +225,10 @@ def scan_live_connections() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]
                         "local_port": local_port,
                         "pid": pid,
                         "process_name": process_name,
+                        "cmdline": cmdline,
+                        "parent_name": parent_name,
                         "timestamp": utc_now_iso(),
-                        "trigger_reason": (
-                            f"watch_port:{remote_port}"
-                            if port_flagged
-                            else f"suspicious_binary:{process_name}"
-                        ),
+                        "trigger_reason": reason,
                     }
                 )
 
@@ -157,7 +256,7 @@ class NetworkMonitor:
             return
         self._running = True
         self._task = asyncio.create_task(self._poll_loop(), name="cybershield-net-monitor")
-        logger.info("Real-time psutil network monitor started.")
+        logger.info("Real-time behavioral psutil network monitor started.")
 
     async def stop(self) -> None:
         self._running = False
@@ -192,7 +291,7 @@ class NetworkMonitor:
 
         ws_manager.emit_activity(
             "danger",
-            f"Suspicious outbound connection: {process_name} (PID {pid}) -> {remote_ip}:{remote_port}",
+            f"Suspicious outbound connection: {process_name} (PID {pid}, parent={event.get('parent_name', 'unknown')}) -> {remote_ip}:{remote_port}",
         )
         ws_manager.emit_incident_update(incident)
 
@@ -285,11 +384,13 @@ class NetworkMonitor:
 
                 for event in flagged_events:
                     logger.warning(
-                        "Suspicious outbound connection detected: %s (PID %s) -> %s:%s",
+                        "Suspicious outbound connection detected: %s (PID %s, parent=%s) -> %s:%s | %s",
                         event["process_name"],
                         event["pid"],
+                        event.get("parent_name", "unknown"),
                         event["remote_ip"],
                         event["remote_port"],
+                        event["trigger_reason"],
                     )
                     self._handle_flagged_event(event)
             except asyncio.CancelledError:
