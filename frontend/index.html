@@ -3,19 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CyberShield Mesh</title>
+  <title>CyberShield Mesh — EDR Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
   <script>
     tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif'],
-            display: ['Space Grotesk', 'Inter', 'sans-serif'],
-            mono: ['JetBrains Mono', 'monospace']
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace']
+          },
+          colors: {
+            carbon: {
+              950: '#0A0D12',
+              900: '#10141C',
+              850: '#161B26',
+              800: '#1F242D',
+              700: '#2B3240'
+            }
           }
         }
       }
@@ -29,644 +36,560 @@
       width: 100vw;
       height: 100vh;
       overflow: hidden;
-      background: #060913;
-      color: #f1f5f9;
-      font-family: 'Inter', sans-serif;
+      background: #0A0D12;
+      color: #E6EDF3;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 12.5px;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .obsidian-bg {
-      background:
-        radial-gradient(ellipse 65% 50% at 10% 0%, rgba(14, 165, 233, 0.11), transparent 60%),
-        radial-gradient(ellipse 55% 45% at 92% 95%, rgba(16, 185, 129, 0.08), transparent 55%),
-        #060913;
-    }
-
-    .glass-card {
-      background: linear-gradient(180deg, rgba(15, 23, 42, 0.72), rgba(9, 14, 28, 0.88));
-      border: 1px solid rgba(51, 65, 85, 0.55);
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+    .mono-num {
+      font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+      font-variant-numeric: tabular-nums;
     }
 
     .thin-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
-    .thin-scroll::-webkit-scrollbar-track { background: transparent; }
-    .thin-scroll::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, 0.55); border-radius: 9999px; }
+    .thin-scroll::-webkit-scrollbar-track { background: #0A0D12; }
+    .thin-scroll::-webkit-scrollbar-thumb { background: #2B3240; border-radius: 3px; }
+    .thin-scroll::-webkit-scrollbar-thumb:hover { background: #3B4454; }
 
-    .nav-item {
-      position: relative;
-      transition: all 0.16s ease;
+    .nav-btn {
+      height: 32px;
+      border-radius: 5px;
+      color: #8B949E;
+      transition: background 120ms ease, color 120ms ease;
     }
-    .nav-item.active {
-      background: linear-gradient(90deg, rgba(14, 165, 233, 0.18), rgba(14, 165, 233, 0.04));
-      border-color: rgba(56, 189, 248, 0.35);
-      color: #f8fafc;
+    .nav-btn:hover {
+      background: #161B26;
+      color: #E6EDF3;
     }
-    .nav-item.active::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 7px;
-      bottom: 7px;
-      width: 3px;
-      border-radius: 9999px;
-      background: #38bdf8;
+    .nav-btn.active {
+      background: #161B26;
+      color: #E6EDF3;
+      box-shadow: inset 2px 0 0 #10B981;
     }
 
-    .filter-pill.active {
-      background: rgba(14, 165, 233, 0.2);
-      border-color: rgba(56, 189, 248, 0.45);
-      color: #bae6fd;
+    .seg-btn {
+      height: 24px;
+      padding: 0 9px;
+      border-radius: 4px;
+      color: #8B949E;
+      font-size: 11px;
+      font-weight: 500;
+      transition: all 100ms ease;
+    }
+    .seg-btn:hover { color: #E6EDF3; }
+    .seg-btn.active {
+      background: #161B26;
+      color: #E6EDF3;
+      border: 1px solid #2B3240;
     }
 
-    @keyframes shieldBreath {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.32), 0 0 28px rgba(14, 165, 233, 0.2); }
-      50% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0), 0 0 38px rgba(14, 165, 233, 0.35); }
+    .table-row {
+      border-bottom: 1px solid #1F242D;
+      transition: background 80ms ease;
     }
-    .shield-glow { animation: shieldBreath 3s ease-in-out infinite; }
+    .table-row:hover { background: #161B26; }
+    .table-row.selected { background: #161B26; box-shadow: inset 2px 0 0 #E6EDF3; }
   </style>
 </head>
-<body class="obsidian-bg h-screen w-screen overflow-hidden antialiased">
+<body class="h-screen w-screen overflow-hidden select-none">
 
-  <!-- TOAST STACK -->
-  <div id="toastStack" class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+  <!-- SUBTLE NOTIFICATION STACK -->
+  <div id="toastStack" class="fixed bottom-4 right-4 z-50 flex flex-col gap-1.5 pointer-events-none"></div>
 
   <!-- ======================================================================= -->
-  <!-- 1. FINISHED COMMERCIAL GOOGLE SIGN-IN SCREEN                            -->
+  <!-- 1. PRECISION OPERATOR AUTHENTICATION GATE                               -->
   <!-- ======================================================================= -->
-  <div id="authGate" class="flex h-full w-full items-center justify-center p-6 overflow-y-auto">
-    <div class="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-5 overflow-hidden rounded-3xl border border-slate-800/90 bg-slate-950/90 shadow-2xl shadow-black/70 backdrop-blur-2xl">
-
-      <!-- Left Product Showcase Column -->
-      <div class="lg:col-span-3 flex flex-col justify-between bg-gradient-to-br from-slate-900/90 via-slate-950 to-slate-950 p-8 border-b lg:border-b-0 lg:border-r border-slate-800/80">
-        <div>
-          <div class="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 font-mono text-[10px] font-semibold text-emerald-300">
-            <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            ENDPOINT SENSOR ONLINE
-          </div>
-
-          <div class="mt-6 flex items-center gap-3.5">
-            <div class="shield-glow flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/40 bg-cyan-500/15 text-cyan-300">
-              <i class="fa-solid fa-shield-halved text-xl"></i>
-            </div>
-            <div>
-              <h1 class="font-display text-2xl font-bold tracking-tight text-white">CyberShield Mesh</h1>
-              <p class="text-xs text-slate-400">Autonomous AI Endpoint Intrusion Defense</p>
-            </div>
-          </div>
-
-          <p class="mt-5 text-sm leading-relaxed text-slate-300">
-            Real-time outbound socket inspection powered by <strong class="text-white">Google Gemini</strong>.
-            Closes the outbound firewall and zero-day script blind spots with instant account-linked alerts and autonomous containment.
-          </p>
-
-          <div class="mt-6 space-y-3">
-            <div class="flex items-start gap-3 rounded-xl border border-slate-800/80 bg-slate-900/50 p-3">
-              <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
-                <i class="fa-solid fa-wave-square text-xs"></i>
-              </span>
-              <div>
-                <div class="text-xs font-semibold text-white">Real-Time Socket Inspection</div>
-                <div class="text-[11px] text-slate-400">Continuously monitors live outbound TCP processes and bandwidth telemetry.</div>
-              </div>
-            </div>
-
-            <div class="flex items-start gap-3 rounded-xl border border-slate-800/80 bg-slate-900/50 p-3">
-              <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-300">
-                <i class="fa-solid fa-envelope-open-text text-xs"></i>
-              </span>
-              <div>
-                <div class="text-xs font-semibold text-white">Instant Gmail &amp; Mobile Alerts</div>
-                <div class="text-[11px] text-slate-400">Delivers signed forensic alerts directly to your Google inbox the second a threat hits.</div>
-              </div>
-            </div>
-
-            <div class="flex items-start gap-3 rounded-xl border border-slate-800/80 bg-slate-900/50 p-3">
-              <span class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-500/15 text-rose-300">
-                <i class="fa-solid fa-bolt text-xs"></i>
-              </span>
-              <div>
-                <div class="text-xs font-semibold text-white">Autonomous Kill &amp; Firewall Block</div>
-                <div class="text-[11px] text-slate-400">Terminates rogue PIDs and blocks remote IPs bidirectionally in Windows Firewall.</div>
-              </div>
-            </div>
+  <div id="authGate" class="flex h-full w-full items-center justify-center bg-[#0A0D12] p-6">
+    <div class="w-full max-w-[420px] rounded-md border border-[#1F242D] bg-[#10141C] p-6">
+      <div class="flex items-center justify-between border-b border-[#1F242D] pb-4">
+        <div class="flex items-center gap-2.5">
+          <svg class="h-5 w-5 text-[#10B981]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <div>
+            <div class="text-[13px] font-semibold tracking-tight text-[#E6EDF3]">CyberShield Mesh</div>
+            <div class="mono-num text-[10px] text-[#8B949E]">EDR SENSOR · 80ms PRE-EXFIL INTERCEPTION</div>
           </div>
         </div>
+        <button id="toggleOAuthGearBtn" type="button" title="OAuth Client Settings" class="flex h-7 w-7 items-center justify-center rounded border border-[#1F242D] bg-[#0A0D12] text-[#8B949E] hover:border-[#2B3240] hover:text-[#E6EDF3]">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.77 1.02 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
 
-        <div class="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-4 font-mono text-[10px] text-slate-500">
-          <span id="loginHostMeta">Host: --</span>
-          <span id="loginModelMeta">Engine: Gemini</span>
+      <div class="mt-4 space-y-2 text-[12px] leading-relaxed text-[#8B949E]">
+        <p>Authenticate with your Google operator identity to unlock the endpoint console and bind verified threat alerts to your Gmail inbox.</p>
+      </div>
+
+      <div class="mt-4 flex items-center justify-between rounded border border-[#1F242D] bg-[#0A0D12] px-3 py-2 mono-num text-[11px]">
+        <span id="loginHostMeta" class="text-[#E6EDF3]">--</span>
+        <span id="loginAdminMeta" class="text-[#8B949E]">--</span>
+      </div>
+
+      <!-- Primary Google Sign-In -->
+      <div id="oauthReadyBox" class="mt-5 hidden">
+        <button id="googleLoginBtn" type="button" class="flex h-9 w-full items-center justify-center gap-2.5 rounded border border-[#2B3240] bg-[#E6EDF3] px-4 text-[12px] font-semibold text-[#0A0D12] hover:bg-white transition">
+          <svg class="h-4 w-4" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+        <div class="mt-3 text-center mono-num text-[10px] text-[#59636E]">
+          OAuth 2.0 opens in system browser · Local SQLite token storage
         </div>
       </div>
 
-      <!-- Right Sign-In Column -->
-      <div class="lg:col-span-2 flex flex-col justify-center p-8 bg-slate-950/95">
-        <div class="flex items-center justify-between">
-          <div>
-            <h2 class="font-display text-lg font-bold text-white">Sign in to Protect PC</h2>
-            <p class="mt-1 text-xs text-slate-400">Link your Google account to activate live alerts</p>
-          </div>
-          <button id="toggleOAuthGearBtn" type="button" title="OAuth Client Settings" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:border-cyan-400/50 hover:text-cyan-300 transition">
-            <i class="fa-solid fa-gear text-xs"></i>
+      <!-- Discreet OAuth Client Setup -->
+      <div id="oauthSetupBox" class="mt-5 hidden rounded border border-[#2B3240] bg-[#0A0D12] p-3.5">
+        <div class="flex items-center justify-between text-[11px]">
+          <span class="font-semibold text-[#E6EDF3]">Google OAuth Client</span>
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" class="mono-num text-[10px] text-[#8B949E] hover:text-[#E6EDF3] underline">Cloud Console</a>
+        </div>
+        <p class="mt-1.5 text-[11px] text-[#8B949E]">
+          Redirect URI: <code id="redirectUriDisplay" class="mono-num text-[#E6EDF3] select-text">http://127.0.0.1:8000/auth/google/callback</code>
+        </p>
+        <form id="oauthConfigForm" class="mt-2.5 space-y-2">
+          <input id="oauthClientIdInput" type="text" required placeholder="Client ID"
+            class="select-text mono-num h-8 w-full rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+          <input id="oauthClientSecretInput" type="password" required placeholder="Client Secret"
+            class="select-text mono-num h-8 w-full rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+          <button type="submit" class="h-8 w-full rounded bg-[#E6EDF3] text-[11px] font-semibold text-[#0A0D12] hover:bg-white">
+            Save OAuth Credentials
           </button>
-        </div>
-
-        <!-- Ready Google Sign-In Button -->
-        <div id="oauthReadyBox" class="mt-7 hidden">
-          <button id="googleLoginBtn" type="button" class="flex w-full items-center justify-center gap-3 rounded-xl bg-white px-4 py-3.5 text-sm font-semibold text-slate-900 shadow-lg shadow-white/10 hover:bg-slate-100 active:scale-[0.99] transition">
-            <svg class="h-5 w-5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            <span>Continue with Google</span>
-          </button>
-
-          <div class="mt-4 rounded-xl border border-slate-800/80 bg-slate-900/50 p-3 text-[11px] leading-relaxed text-slate-400">
-            <i class="fa-solid fa-lock mr-1.5 text-emerald-400"></i>
-            Authentication opens in your system browser via Google OAuth 2.0. Tokens stay strictly local on this device.
-          </div>
-        </div>
-
-        <!-- Collapsible OAuth Credentials Setup Panel -->
-        <div id="oauthSetupBox" class="mt-6 hidden rounded-xl border border-amber-500/30 bg-amber-500/5 p-4">
-          <div class="flex items-center justify-between">
-            <span class="font-mono text-[10px] font-bold uppercase tracking-wider text-amber-300">
-              <i class="fa-solid fa-key mr-1.5"></i>Connect Google OAuth
-            </span>
-            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener" class="font-mono text-[10px] text-cyan-300 hover:underline">
-              Cloud Console &nearr;
-            </a>
-          </div>
-          <p class="mt-2 text-[11px] leading-relaxed text-slate-300">
-            Enable <strong>Gmail API</strong>, create a Web OAuth client with redirect URI
-            <code id="redirectUriDisplay" class="rounded bg-slate-900 px-1 py-0.5 font-mono text-[10px] text-emerald-300 break-all">http://127.0.0.1:8000/auth/google/callback</code>, then save below:
-          </p>
-          <form id="oauthConfigForm" class="mt-3 space-y-2.5">
-            <input id="oauthClientIdInput" type="text" required placeholder="Google OAuth Client ID"
-              class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[11px] text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
-            <input id="oauthClientSecretInput" type="password" required placeholder="Google OAuth Client Secret"
-              class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[11px] text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
-            <button type="submit" class="w-full rounded-lg bg-cyan-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition">
-              Save &amp; Enable Google Sign-In
-            </button>
-          </form>
-        </div>
+        </form>
       </div>
     </div>
   </div>
 
   <!-- ======================================================================= -->
-  <!-- 2. FINISHED COMMERCIAL ENDPOINT SECURITY CONSOLE                        -->
+  <!-- 2. ENTERPRISE EDR CONSOLE SHELL                                         -->
   <!-- ======================================================================= -->
-  <div id="consoleShell" class="hidden h-full w-full flex">
+  <div id="consoleShell" class="hidden h-full w-full flex flex-col bg-[#0A0D12]">
 
-    <!-- LEFT NAVIGATION RAIL -->
-    <aside class="flex w-64 shrink-0 flex-col justify-between border-r border-slate-800/80 bg-slate-950/90 p-3.5">
-      <div>
-        <!-- Brand Header -->
-        <div class="flex items-center justify-between px-1.5 py-1">
-          <div class="flex items-center gap-2.5">
-            <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/35 bg-cyan-500/15 text-cyan-300">
-              <i class="fa-solid fa-shield-halved text-sm"></i>
-            </span>
-            <div>
-              <div class="font-display text-sm font-bold tracking-tight text-white">CyberShield Mesh</div>
-              <div class="font-mono text-[9px] tracking-wider text-slate-400">AUTONOMOUS DEFENSE</div>
-            </div>
-          </div>
-          <span id="wsStatusPill" class="inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] text-amber-300">
-            <span id="wsDot" class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>
-            <span id="wsText">SYNC</span>
-          </span>
+    <!-- TOP COMMAND HEADER (44px FIXED) -->
+    <header class="flex h-[44px] shrink-0 items-center justify-between gap-3 border-b border-[#1F242D] bg-[#10141C] px-3.5">
+      <!-- Left: Brand + Host + Firewall Privilege -->
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-2 pr-2 border-r border-[#1F242D]">
+          <span id="wsDot" class="h-2 w-2 rounded-full bg-[#10B981]"></span>
+          <span class="text-[12.5px] font-semibold tracking-tight text-[#E6EDF3]">CyberShield</span>
         </div>
 
-        <!-- Navigation Menu -->
-        <div class="mt-5 px-1.5 font-mono text-[9px] font-semibold uppercase tracking-widest text-slate-500">Protection</div>
-        <nav class="mt-1.5 space-y-1">
-          <button data-tab="monitor" class="nav-item active flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-left text-xs font-medium text-slate-300 hover:bg-slate-900/80">
-            <span><i class="fa-solid fa-gauge-high w-5 text-cyan-400"></i>Live Monitor</span>
-            <span id="navConnCount" class="rounded-md bg-slate-800/90 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">0</span>
-          </button>
-          <button data-tab="incidents" class="nav-item flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-left text-xs font-medium text-slate-300 hover:bg-slate-900/80">
-            <span><i class="fa-solid fa-shield-virus w-5 text-rose-400"></i>Threats &amp; Forensics</span>
-            <span id="navIncCount" class="rounded-md bg-slate-800/90 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">0</span>
-          </button>
-          <button data-tab="firewall" class="nav-item flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-left text-xs font-medium text-slate-300 hover:bg-slate-900/80">
-            <span><i class="fa-solid fa-ban w-5 text-amber-400"></i>Firewall &amp; Trust</span>
-            <span id="navBlockCount" class="rounded-md bg-slate-800/90 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">0</span>
-          </button>
-        </nav>
+        <span id="headerHost" class="mono-num hidden sm:inline text-[11px] text-[#8B949E] truncate">--</span>
 
-        <div class="mt-5 px-1.5 font-mono text-[9px] font-semibold uppercase tracking-widest text-slate-500">Intelligence</div>
-        <nav class="mt-1.5 space-y-1">
-          <button data-tab="copilot" class="nav-item flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-left text-xs font-medium text-slate-300 hover:bg-slate-900/80">
-            <span><i class="fa-solid fa-sparkles w-5 text-sky-400"></i>AI Security Copilot</span>
-            <span class="rounded bg-cyan-500/15 px-1.5 py-0.5 font-mono text-[9px] text-cyan-300">GEMINI</span>
-          </button>
-          <button data-tab="settings" class="nav-item flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2.5 text-left text-xs font-medium text-slate-300 hover:bg-slate-900/80">
-            <span><i class="fa-solid fa-sliders w-5 text-emerald-400"></i>Account &amp; Policy</span>
-          </button>
-        </nav>
+        <span id="adminEnforcedBadge" class="mono-num hidden items-center gap-1.5 rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[10px] text-[#10B981]">
+          FIREWALL /32 ENFORCED
+        </span>
+        <button id="elevateAdminBtn" type="button" class="mono-num hidden items-center gap-1.5 rounded border border-[#F59E0B]/50 bg-[#F59E0B]/10 px-2 py-0.5 text-[10px] font-medium text-[#F59E0B] hover:bg-[#F59E0B]/20 transition" title="Relaunch with Windows Administrator privileges so netsh firewall rules enforce live">
+          &#9888; ELEVATE TO ADMIN FIREWALL
+        </button>
       </div>
 
-      <!-- Bottom Host Health + Signed-In Google User Card -->
-      <div class="space-y-2.5">
-        <!-- Real-Time Host Health Mini Bar -->
-        <div class="rounded-xl border border-slate-800/80 bg-slate-900/50 p-2.5 font-mono text-[10px]">
-          <div class="flex items-center justify-between text-slate-400">
-            <span>CPU <strong id="miniCpu" class="text-slate-200">0%</strong></span>
-            <span>RAM <strong id="miniMem" class="text-slate-200">0%</strong></span>
-          </div>
-          <div class="mt-1.5 flex items-center justify-between text-[9px] text-slate-500">
-            <span>TX <span id="miniTx" class="text-cyan-300">0 KB/s</span></span>
-            <span>RX <span id="miniRx" class="text-emerald-300">0 KB/s</span></span>
-          </div>
+      <!-- Center: Ctrl+K Global Command & Filter Input -->
+      <form id="commandBarForm" class="flex-1 max-w-[440px]">
+        <div class="relative flex items-center">
+          <svg class="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-[#59636E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input id="globalCommandInput" type="text" autocomplete="off"
+            placeholder="Filter process/IP or run command (e.g. unblock 10.100.5.99)..."
+            class="select-text h-[28px] w-full rounded border border-[#1F242D] bg-[#0A0D12] pl-8 pr-14 text-[11.5px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+          <kbd class="mono-num pointer-events-none absolute right-2 rounded border border-[#1F242D] bg-[#10141C] px-1.5 py-0.2 text-[9.5px] text-[#59636E]">Ctrl K</kbd>
+        </div>
+      </form>
+
+      <!-- Right: Live Telemetry Readout + Autonomous Switch + Sensor Posture -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="mono-num hidden xl:flex items-center gap-2.5 text-[11px] text-[#8B949E] border-r border-[#1F242D] pr-3">
+          <span>TX <strong id="hdrTx" class="font-normal text-[#E6EDF3]">0.0</strong> KB/s</span>
+          <span>RX <strong id="hdrRx" class="font-normal text-[#E6EDF3]">0.0</strong> KB/s</span>
+          <span>CPU <strong id="hdrCpu" class="font-normal text-[#E6EDF3]">0%</strong></span>
+          <span>MEM <strong id="hdrMem" class="font-normal text-[#E6EDF3]">0%</strong></span>
         </div>
 
-        <!-- Google Account Profile Card -->
-        <div class="rounded-xl border border-slate-800/90 bg-slate-900/75 p-2.5">
-          <div class="flex items-center gap-2.5">
-            <img id="sidebarAvatar" src="" alt="" class="h-9 w-9 rounded-full border border-cyan-500/35 bg-slate-800 object-cover" />
+        <label class="flex cursor-pointer items-center gap-1.5 text-[11.5px] text-[#8B949E] hover:text-[#E6EDF3]">
+          <input id="quickAutonomousToggle" type="checkbox" class="h-3.5 w-3.5 accent-[#10B981] rounded-sm" />
+          <span>Auto-Contain</span>
+        </label>
+
+        <span id="postureIndicator" class="mono-num inline-flex items-center gap-1.5 rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[10.5px] font-medium text-[#10B981]">
+          <span id="postureDot" class="h-1.5 w-1.5 rounded-full bg-[#10B981]"></span>
+          <span id="postureText">ARMED</span>
+        </span>
+      </div>
+    </header>
+
+    <!-- BODY: LEFT RAIL (210px) + MAIN WORKSPACE + SLIDE-OVER INSPECTOR -->
+    <div class="flex flex-1 min-h-0 overflow-hidden">
+
+      <!-- LEFT NAVIGATION RAIL (210px FIXED) -->
+      <aside class="flex w-[210px] shrink-0 flex-col justify-between border-r border-[#1F242D] bg-[#10141C] p-2.5">
+        <nav class="space-y-0.5">
+          <button data-tab="monitor" class="nav-btn active flex w-full items-center justify-between px-2.5 text-left text-[12px] font-medium">
+            <span class="flex items-center gap-2">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Live Telemetry
+            </span>
+            <span id="navConnCount" class="mono-num text-[10.5px] text-[#8B949E]">0</span>
+          </button>
+
+          <button data-tab="incidents" class="nav-btn flex w-full items-center justify-between px-2.5 text-left text-[12px] font-medium">
+            <span class="flex items-center gap-2">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Incidents &amp; Forensics
+            </span>
+            <span id="navIncCount" class="mono-num text-[10.5px] text-[#8B949E]">0</span>
+          </button>
+
+          <button data-tab="firewall" class="nav-btn flex w-full items-center justify-between px-2.5 text-left text-[12px] font-medium">
+            <span class="flex items-center gap-2">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+              Firewall &amp; Policy
+            </span>
+            <span id="navBlockCount" class="mono-num text-[10.5px] text-[#8B949E]">0</span>
+          </button>
+
+          <button data-tab="copilot" class="nav-btn flex w-full items-center justify-between px-2.5 text-left text-[12px] font-medium">
+            <span class="flex items-center gap-2">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              AI Security Copilot
+            </span>
+          </button>
+
+          <button data-tab="settings" class="nav-btn flex w-full items-center justify-between px-2.5 text-left text-[12px] font-medium">
+            <span class="flex items-center gap-2">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+              Sensor &amp; Alerts
+            </span>
+          </button>
+        </nav>
+
+        <!-- Pinned Operator Card -->
+        <div class="border-t border-[#1F242D] pt-2.5">
+          <div class="flex items-center gap-2 px-1">
+            <img id="sidebarAvatar" src="" alt="" class="h-6 w-6 rounded-full border border-[#2B3240] bg-[#0A0D12] object-cover" />
             <div class="min-w-0 flex-1">
-              <div id="sidebarName" class="truncate text-xs font-semibold text-white">Signed In</div>
-              <div id="sidebarEmail" class="truncate font-mono text-[10px] text-slate-400">user@gmail.com</div>
+              <div id="sidebarName" class="truncate text-[11.5px] font-medium text-[#E6EDF3]">Operator</div>
+              <div id="sidebarEmail" class="mono-num truncate text-[10px] text-[#8B949E]">--</div>
             </div>
           </div>
-          <div class="mt-2.5 flex items-center justify-between border-t border-slate-800/80 pt-2">
-            <span id="sidebarGmailBadge" class="font-mono text-[9px] text-emerald-400">
-              <i class="fa-solid fa-envelope-circle-check mr-1"></i>Gmail Alerts ON
-            </span>
-            <button id="sidebarLogoutBtn" type="button" class="font-mono text-[10px] text-slate-400 hover:text-rose-300 transition">
-              Sign Out
-            </button>
+          <div class="mt-2 flex items-center justify-between px-1 text-[10.5px]">
+            <span id="sidebarGmailDot" class="mono-num text-[#10B981]">Gmail Active</span>
+            <button id="sidebarLogoutBtn" type="button" class="text-[#8B949E] hover:text-[#EF4444]">Sign out</button>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
 
-    <!-- MAIN WORKSPACE -->
-    <div class="flex flex-1 min-w-0 flex-col overflow-hidden">
+      <!-- CENTER WORKSPACE -->
+      <main class="flex flex-1 min-w-0 flex-col overflow-hidden bg-[#0A0D12]">
 
-      <!-- TOP HEADER BAR -->
-      <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-950/75 px-5 backdrop-blur-md">
-        <div class="flex items-center gap-3 min-w-0">
-          <h2 id="viewTitle" class="font-display text-base font-bold text-white">Live Endpoint Monitor</h2>
-          <span id="hostBadge" class="hidden md:inline-block rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-0.5 font-mono text-[10px] text-slate-400">--</span>
-          <span id="adminBadge" class="rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-0.5 font-mono text-[10px] text-slate-400">--</span>
-        </div>
-
-        <div class="flex items-center gap-2.5">
-          <button id="soundToggleBtn" type="button" title="Toggle Threat Alert Chime" class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-cyan-300 hover:border-cyan-400/50 transition">
-            <i id="soundIcon" class="fa-solid fa-volume-high text-xs"></i>
-          </button>
-
-          <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs text-slate-200 hover:border-cyan-500/40 transition">
-            <input id="quickAutonomousToggle" type="checkbox" class="h-3.5 w-3.5 accent-cyan-400" />
-            <span>Autonomous AI</span>
-          </label>
-
-          <span id="postureBadge" class="rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300">
-            ARMED
-          </span>
-        </div>
-      </header>
-
-      <!-- LIVE ACTIVE CONTAINMENT BANNER (APPEARS ONLY ON REAL THREAT EVENTS) -->
-      <div id="activeThreatBanner" class="hidden shrink-0 border-b border-rose-500/35 bg-gradient-to-r from-rose-950/70 via-slate-950/90 to-cyan-950/60 px-5 py-3">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40">
-              <i class="fa-solid fa-shield-exclamation text-sm"></i>
-            </span>
-            <div class="min-w-0">
-              <div id="bannerTitle" class="text-xs font-bold text-white truncate">Active Intrusion Containment</div>
-              <div id="bannerSummary" class="text-[11px] text-slate-300 truncate">--</div>
-            </div>
+        <!-- CONFIRMED CONTAINMENT BANNER (ONLY ON VERIFIED 'BLOCKED' MALICIOUS INCIDENTS) -->
+        <div id="confirmedThreatBar" class="hidden shrink-0 flex items-center justify-between gap-3 border-b border-[#EF4444]/40 bg-[#EF4444]/10 px-4 py-2">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="h-2 w-2 shrink-0 rounded-full bg-[#EF4444]"></span>
+            <span id="threatBarTitle" class="mono-num text-[11.5px] font-semibold text-[#E6EDF3] truncate">THREAT CONTAINED</span>
+            <span id="threatBarSummary" class="text-[11.5px] text-[#8B949E] truncate">--</span>
           </div>
-          <div class="flex items-center gap-1.5 font-mono text-[10px]">
-            <span id="bStepDetect" class="rounded-md px-2 py-0.5 bg-rose-500/20 text-rose-200 border border-rose-500/40">Detected</span>
-            <span id="bStepGmail" class="rounded-md px-2 py-0.5 bg-slate-900 text-slate-400 border border-slate-700">Gmail</span>
-            <span id="bStepKill" class="rounded-md px-2 py-0.5 bg-slate-900 text-slate-400 border border-slate-700">PID Cut</span>
-            <span id="bStepBlock" class="rounded-md px-2 py-0.5 bg-slate-900 text-slate-400 border border-slate-700">Blocked</span>
-            <button id="dismissBannerBtn" type="button" class="ml-2 text-slate-400 hover:text-white" title="Dismiss">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <button id="threatBarInspectBtn" type="button" class="rounded border border-[#2B3240] bg-[#10141C] px-2 py-0.5 text-[11px] text-[#E6EDF3] hover:bg-[#161B26]">View Forensics</button>
+            <button id="dismissThreatBarBtn" type="button" class="text-[#8B949E] hover:text-[#E6EDF3] px-1">&times;</button>
           </div>
         </div>
-      </div>
-
-      <!-- TAB WORKSPACE -->
-      <main class="flex-1 min-h-0 overflow-hidden p-5">
 
         <!-- =============================================================== -->
-        <!-- TAB 1: LIVE ENDPOINT MONITOR                                    -->
+        <!-- VIEW 1: LIVE TELEMETRY                                          -->
         <!-- =============================================================== -->
-        <section id="tab-monitor" class="tab-panel flex h-full flex-col gap-4 overflow-hidden">
+        <section id="tab-monitor" class="tab-panel flex flex-1 min-h-0 flex-col overflow-hidden">
 
-          <!-- Top Strip: 3 KPI Cards + Live Real-Time Bandwidth Sparkline Card -->
-          <div class="grid shrink-0 grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
-            <div class="glass-card rounded-2xl p-3.5">
-              <div class="flex items-center justify-between">
-                <span class="font-mono text-[10px] uppercase text-slate-400">Active Sockets</span>
-                <i class="fa-solid fa-network-wired text-xs text-cyan-400"></i>
+          <!-- COMPACT 4-METRIC STRIP (56px, 1px HAIRLINES) -->
+          <div class="grid h-[58px] shrink-0 grid-cols-4 divide-x divide-[#1F242D] border-b border-[#1F242D] bg-[#10141C]">
+            <div class="flex items-center justify-between px-4">
+              <div>
+                <div class="text-[10px] font-medium uppercase tracking-wider text-[#8B949E]">Active Sockets</div>
+                <div id="kpiActiveSockets" class="mono-num mt-0.5 text-[17px] font-semibold text-[#E6EDF3]">0</div>
               </div>
-              <div id="kpiConnections" class="mt-1.5 font-display text-2xl font-bold text-white">0</div>
-              <div class="mt-0.5 text-[11px] text-slate-400">ESTABLISHED outbound TCP</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-3.5">
-              <div class="flex items-center justify-between">
-                <span class="font-mono text-[10px] uppercase text-slate-400">Threats Stopped</span>
-                <i class="fa-solid fa-shield-virus text-xs text-rose-400"></i>
-              </div>
-              <div id="kpiIncidents" class="mt-1.5 font-display text-2xl font-bold text-rose-300">0</div>
-              <div class="mt-0.5 text-[11px] text-slate-400">Autonomous + logged events</div>
-            </div>
-
-            <div class="glass-card rounded-2xl p-3.5">
-              <div class="flex items-center justify-between">
-                <span class="font-mono text-[10px] uppercase text-slate-400">Blocked Peers</span>
-                <i class="fa-solid fa-ban text-xs text-amber-400"></i>
-              </div>
-              <div id="kpiBlocked" class="mt-1.5 font-display text-2xl font-bold text-amber-300">0</div>
-              <div class="mt-0.5 text-[11px] text-slate-400">Active firewall deny rules</div>
-            </div>
-
-            <!-- Live Real-Time Network Throughput Sparkline (2 columns wide) -->
-            <div class="glass-card xl:col-span-2 rounded-2xl p-3.5 flex flex-col justify-between">
-              <div class="flex items-center justify-between">
-                <span class="font-mono text-[10px] uppercase text-slate-400">Real-Time Network Throughput</span>
-                <div class="flex items-center gap-3 font-mono text-[10px]">
-                  <span class="text-cyan-300">&uarr; <strong id="chartTxLabel">0.0</strong> KB/s</span>
-                  <span class="text-emerald-300">&darr; <strong id="chartRxLabel">0.0</strong> KB/s</span>
-                </div>
-              </div>
-              <svg id="bandwidthSvg" viewBox="0 0 320 48" preserveAspectRatio="none" class="mt-2 h-11 w-full overflow-visible">
-                <defs>
-                  <linearGradient id="txGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.35"/>
-                    <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
-                  </linearGradient>
-                  <linearGradient id="rxGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#34d399" stop-opacity="0.25"/>
-                    <stop offset="100%" stop-color="#34d399" stop-opacity="0"/>
-                  </linearGradient>
-                </defs>
-                <path id="rxArea" d="" fill="url(#rxGrad)"></path>
-                <path id="rxLine" d="" fill="none" stroke="#34d399" stroke-width="1.6" stroke-linecap="round"></path>
-                <path id="txArea" d="" fill="url(#txGrad)"></path>
-                <path id="txLine" d="" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"></path>
+              <svg viewBox="0 0 96 26" preserveAspectRatio="none" class="h-[26px] w-[96px]">
+                <path id="sparkRx" d="" fill="none" stroke="#8B949E" stroke-width="1.2"/>
+                <path id="sparkTx" d="" fill="none" stroke="#10B981" stroke-width="1.5"/>
               </svg>
             </div>
+
+            <div class="flex flex-col justify-center px-4">
+              <div class="text-[10px] font-medium uppercase tracking-wider text-[#8B949E]">Frozen / Triaging</div>
+              <div id="kpiFrozen" class="mono-num mt-0.5 text-[17px] font-semibold text-[#8B949E]">0</div>
+            </div>
+
+            <div class="flex flex-col justify-center px-4">
+              <div class="text-[10px] font-medium uppercase tracking-wider text-[#8B949E]">Blocked /32 Peers</div>
+              <div id="kpiBlockedPeers" class="mono-num mt-0.5 text-[17px] font-semibold text-[#E6EDF3]">0</div>
+            </div>
+
+            <div class="flex flex-col justify-center px-4">
+              <div class="text-[10px] font-medium uppercase tracking-wider text-[#8B949E]">Threats Neutralized</div>
+              <div id="kpiNeutralized" class="mono-num mt-0.5 text-[17px] font-semibold text-[#E6EDF3]">0</div>
+            </div>
           </div>
 
-          <!-- Main Split: Live Connections Inspector + Real-Time Event Feed -->
-          <div class="grid flex-1 min-h-0 grid-cols-1 xl:grid-cols-3 gap-4 overflow-hidden">
-            <!-- Live Outbound Connections Inspector -->
-            <div class="glass-card xl:col-span-2 flex min-h-0 flex-col rounded-2xl overflow-hidden">
-              <div class="flex shrink-0 flex-wrap items-center justify-between gap-2.5 border-b border-slate-800/80 px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <h3 class="text-sm font-semibold text-white">Live Outbound Connections</h3>
-                  <div class="flex items-center gap-1 font-mono text-[10px]">
-                    <button data-risk="all" class="filter-pill active rounded-md border border-slate-700/80 bg-slate-900 px-2 py-0.5 text-slate-300">All</button>
-                    <button data-risk="high" class="filter-pill rounded-md border border-slate-700/80 bg-slate-900 px-2 py-0.5 text-rose-300">High Risk</button>
-                    <button data-risk="trusted" class="filter-pill rounded-md border border-slate-700/80 bg-slate-900 px-2 py-0.5 text-emerald-300">Trusted</button>
-                  </div>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
-                    <input id="connFilterInput" type="text" placeholder="Search process, IP, port..."
-                      class="w-48 rounded-lg border border-slate-700/80 bg-slate-950/80 pl-7 pr-2.5 py-1 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
-                  </div>
-                  <button id="refreshConnBtn" type="button" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-900 text-slate-300 hover:border-cyan-400 hover:text-cyan-300 transition" title="Refresh Now">
-                    <i class="fa-solid fa-rotate text-[11px]"></i>
-                  </button>
-                </div>
-              </div>
-
-              <div class="thin-scroll flex-1 overflow-auto">
-                <table class="w-full text-left text-xs">
-                  <thead class="sticky top-0 z-10 bg-slate-900/95 font-mono text-[10px] uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th class="px-4 py-2.5">Process</th>
-                      <th class="px-3 py-2.5">PID</th>
-                      <th class="px-3 py-2.5">Destination</th>
-                      <th class="px-3 py-2.5">Posture</th>
-                      <th class="px-4 py-2.5 text-right">Response</th>
-                    </tr>
-                  </thead>
-                  <tbody id="connectionsTbody" class="divide-y divide-slate-800/60 font-mono text-[11px]"></tbody>
-                </table>
-              </div>
+          <!-- SUB-TOOLBAR -->
+          <div class="flex h-[36px] shrink-0 items-center justify-between border-b border-[#1F242D] bg-[#0A0D12] px-4">
+            <div class="flex items-center gap-1">
+              <button data-filter="all" class="seg-btn active">All Sockets</button>
+              <button data-filter="attention" class="seg-btn">Triaging / High</button>
+              <button data-filter="blocked" class="seg-btn">Blocked</button>
+              <button data-filter="trusted" class="seg-btn">Trusted</button>
             </div>
-
-            <!-- Live Defense Activity Stream -->
-            <div class="glass-card flex min-h-0 flex-col rounded-2xl overflow-hidden">
-              <div class="flex shrink-0 items-center justify-between border-b border-slate-800/80 px-4 py-3">
-                <div>
-                  <h3 class="text-sm font-semibold text-white">Real-Time Event Stream</h3>
-                  <p class="text-[11px] text-slate-400">Sensor, Gmail alert &amp; Gemini logs</p>
-                </div>
-                <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              </div>
-              <div id="activityFeedList" class="thin-scroll flex-1 space-y-2 overflow-y-auto p-3 text-xs"></div>
+            <div class="flex items-center gap-2 mono-num text-[11px] text-[#8B949E]">
+              <span>80ms SYN_SENT + ESTABLISHED</span>
+              <button id="refreshConnBtn" type="button" class="rounded border border-[#1F242D] bg-[#10141C] px-2 py-0.5 text-[10.5px] text-[#E6EDF3] hover:bg-[#161B26]">Refresh</button>
             </div>
+          </div>
+
+          <!-- HIGH-DENSITY LIVE CONNECTIONS TABLE -->
+          <div class="thin-scroll flex-1 min-h-0 overflow-auto">
+            <table class="w-full border-collapse text-left">
+              <thead class="sticky top-0 z-10 border-b border-[#1F242D] bg-[#10141C] text-[10.5px] font-medium uppercase tracking-wider text-[#8B949E]">
+                <tr>
+                  <th class="py-2 pl-4 pr-3">Process &amp; Command Line</th>
+                  <th class="py-2 px-3 w-[76px]">PID</th>
+                  <th class="py-2 px-3 w-[210px]">Destination</th>
+                  <th class="py-2 px-3 w-[124px]">State</th>
+                  <th class="py-2 px-3 w-[110px]">Posture</th>
+                  <th class="py-2 pl-3 pr-4 text-right w-[196px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="connectionsTbody" class="text-[12px]"></tbody>
+            </table>
+          </div>
+
+          <!-- COMPACT SENSOR AUDIT TAPE (BOTTOM 125px) -->
+          <div class="flex h-[126px] shrink-0 flex-col border-t border-[#1F242D] bg-[#10141C]">
+            <div class="flex h-[26px] shrink-0 items-center justify-between border-b border-[#1F242D] px-4 text-[10px] font-medium uppercase tracking-wider text-[#8B949E]">
+              <span>Sensor Event Stream</span>
+              <span id="eventStreamCount" class="mono-num text-[#59636E]">0 events</span>
+            </div>
+            <div id="activityTape" class="thin-scroll flex-1 overflow-y-auto divide-y divide-[#1F242D]/60 px-4 mono-num text-[11px]"></div>
           </div>
         </section>
 
         <!-- =============================================================== -->
-        <!-- TAB 2: THREATS & FORENSICS                                      -->
+        <!-- VIEW 2: INCIDENTS & FORENSICS                                   -->
         <!-- =============================================================== -->
-        <section id="tab-incidents" class="tab-panel hidden flex h-full flex-col gap-3 overflow-hidden">
-          <div class="flex shrink-0 flex-wrap items-center justify-between gap-2">
-            <div>
-              <h3 class="text-sm font-semibold text-white">Incident Forensics &amp; Alert Receipts</h3>
-              <p class="text-xs text-slate-400">Every detected outbound threat persisted locally with Gemini reasoning and Gmail delivery IDs</p>
+        <section id="tab-incidents" class="tab-panel hidden flex flex-1 min-h-0 flex-col overflow-hidden">
+          <div class="flex h-[38px] shrink-0 items-center justify-between border-b border-[#1F242D] bg-[#10141C] px-4">
+            <div class="flex items-center gap-2">
+              <span class="text-[12px] font-semibold text-[#E6EDF3]">Incident Forensics</span>
+              <label class="ml-3 flex cursor-pointer items-center gap-1.5 text-[11px] text-[#8B949E]">
+                <input id="showBenignClearedToggle" type="checkbox" class="h-3 w-3 accent-[#8B949E]" />
+                <span>Include Benign Cleared</span>
+              </label>
             </div>
-            <div class="relative">
-              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-[10px] text-slate-500"></i>
-              <input id="incFilterInput" type="text" placeholder="Filter by IP, process, or summary..."
-                class="w-64 rounded-lg border border-slate-700/80 bg-slate-900/90 pl-8 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
-            </div>
+            <span id="incSummaryMeta" class="mono-num text-[11px] text-[#8B949E]">SQLite Persisted</span>
           </div>
-          <div id="incidentsList" class="thin-scroll flex-1 space-y-3 overflow-y-auto pr-1"></div>
+
+          <div class="thin-scroll flex-1 overflow-y-auto">
+            <table class="w-full border-collapse text-left">
+              <thead class="sticky top-0 z-10 border-b border-[#1F242D] bg-[#10141C] text-[10.5px] font-medium uppercase tracking-wider text-[#8B949E]">
+                <tr>
+                  <th class="py-2 pl-4 pr-3 w-[150px]">Timestamp (UTC)</th>
+                  <th class="py-2 px-3 w-[180px]">Process</th>
+                  <th class="py-2 px-3 w-[165px]">Remote Peer</th>
+                  <th class="py-2 px-3 w-[115px]">Verdict</th>
+                  <th class="py-2 px-3">Gemini Forensic Summary</th>
+                  <th class="py-2 pl-3 pr-4 text-right w-[130px]">Action</th>
+                </tr>
+              </thead>
+              <tbody id="incidentsTbody" class="text-[12px]"></tbody>
+            </table>
+          </div>
         </section>
 
         <!-- =============================================================== -->
-        <!-- TAB 3: FIREWALL & TRUSTED WHITELIST                             -->
+        <!-- VIEW 3: FIREWALL & POLICY                                       -->
         <!-- =============================================================== -->
-        <section id="tab-firewall" class="tab-panel hidden grid h-full grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
-          <!-- Active Firewall Blocks -->
-          <div class="glass-card flex min-h-0 flex-col rounded-2xl overflow-hidden">
-            <div class="flex shrink-0 items-center justify-between border-b border-slate-800/80 px-4 py-3">
-              <div>
-                <h3 class="text-sm font-semibold text-white">Active Firewall Blocks</h3>
-                <p class="text-[11px] text-slate-400">Bidirectional inbound + outbound rules enforced on this endpoint</p>
-              </div>
-              <button id="resetFirewallBtn" type="button" class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-2.5 py-1 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition">
-                Clear All
+        <section id="tab-firewall" class="tab-panel hidden grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#1F242D] overflow-hidden">
+          <!-- Left: Active /32 Firewall Blocks -->
+          <div class="flex min-h-0 flex-col overflow-hidden">
+            <div class="flex h-[38px] shrink-0 items-center justify-between border-b border-[#1F242D] bg-[#10141C] px-4">
+              <span class="text-[12px] font-semibold text-[#E6EDF3]">Blocked Single-Host (/32) Rules</span>
+              <button id="resetFirewallBtn" type="button" class="rounded border border-[#EF4444]/40 bg-[#EF4444]/10 px-2.5 py-0.5 text-[11px] font-medium text-[#EF4444] hover:bg-[#EF4444]/20">
+                Flush All Rules
               </button>
             </div>
-            <form id="manualBlockForm" class="flex shrink-0 gap-2 border-b border-slate-800/70 p-3">
-              <input id="blockIpInput" type="text" required placeholder="IP address to block (e.g. 10.100.5.67)"
-                class="flex-1 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-rose-400 focus:outline-none" />
-              <button type="submit" class="rounded-lg bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-500 transition">
-                Block IP
-              </button>
-            </form>
-            <div id="blockedList" class="thin-scroll flex-1 space-y-2.5 overflow-y-auto p-3.5"></div>
-          </div>
-
-          <!-- Trusted IP Whitelist -->
-          <div class="glass-card flex min-h-0 flex-col rounded-2xl overflow-hidden">
-            <div class="shrink-0 border-b border-slate-800/80 px-4 py-3">
-              <h3 class="text-sm font-semibold text-white">Trusted IP Whitelist</h3>
-              <p class="text-[11px] text-slate-400">Known infrastructure or dev servers exempt from autonomous containment</p>
-            </div>
-            <form id="whitelistForm" class="flex shrink-0 gap-2 border-b border-slate-800/70 p-3">
-              <input id="whitelistIpInput" type="text" required placeholder="Trusted IP (e.g. 192.168.1.10)"
-                class="flex-1 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2 font-mono text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none" />
-              <input id="whitelistLabelInput" type="text" placeholder="Label"
-                class="w-32 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-400 focus:outline-none" />
-              <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 transition">
-                Trust IP
+            <form id="manualBlockForm" class="flex shrink-0 gap-2 border-b border-[#1F242D] bg-[#0A0D12] p-3">
+              <input id="blockIpInput" type="text" required placeholder="IPv4 / IPv6 address (e.g. 10.100.5.99)"
+                class="select-text mono-num h-8 flex-1 rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11.5px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+              <button type="submit" class="h-8 rounded border border-[#EF4444]/50 bg-[#EF4444] px-3 text-[11.5px] font-semibold text-white hover:bg-[#dc2626]">
+                Block /32
               </button>
             </form>
-            <div id="whitelistList" class="thin-scroll flex-1 space-y-2.5 overflow-y-auto p-3.5"></div>
+            <div id="blockedList" class="thin-scroll flex-1 divide-y divide-[#1F242D] overflow-y-auto"></div>
+          </div>
+
+          <!-- Right: Trusted IP Whitelist -->
+          <div class="flex min-h-0 flex-col overflow-hidden">
+            <div class="flex h-[38px] shrink-0 items-center justify-between border-b border-[#1F242D] bg-[#10141C] px-4">
+              <span class="text-[12px] font-semibold text-[#E6EDF3]">Trusted IP Whitelist</span>
+              <span class="mono-num text-[10.5px] text-[#8B949E]">Exempt from suspension</span>
+            </div>
+            <form id="whitelistForm" class="flex shrink-0 gap-2 border-b border-[#1F242D] bg-[#0A0D12] p-3">
+              <input id="whitelistIpInput" type="text" required placeholder="Trusted IP (e.g. 10.100.5.67)"
+                class="select-text mono-num h-8 flex-1 rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11.5px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+              <input id="whitelistLabelInput" type="text" placeholder="Note / Server name"
+                class="select-text h-8 w-36 rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11.5px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+              <button type="submit" class="h-8 rounded bg-[#10B981] px-3 text-[11.5px] font-semibold text-[#0A0D12] hover:bg-[#34d399]">
+                Whitelist
+              </button>
+            </form>
+            <div id="whitelistList" class="thin-scroll flex-1 divide-y divide-[#1F242D] overflow-y-auto"></div>
           </div>
         </section>
 
         <!-- =============================================================== -->
-        <!-- TAB 4: GEMINI AI SECURITY COPILOT                               -->
+        <!-- VIEW 4: AI SECURITY COPILOT                                     -->
         <!-- =============================================================== -->
-        <section id="tab-copilot" class="tab-panel hidden glass-card flex h-full flex-col rounded-2xl overflow-hidden">
-          <div class="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 px-5 py-3.5">
-            <div class="flex items-center gap-3">
-              <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/35 bg-cyan-500/15 text-cyan-300">
-                <i class="fa-solid fa-sparkles"></i>
-              </span>
-              <div>
-                <h3 class="text-sm font-semibold text-white">Gemini AI Security Copilot</h3>
-                <p class="text-[11px] text-slate-400">Live access to active sockets, incident forensics, Gmail alerts &amp; OS firewall tools</p>
-              </div>
-            </div>
-            <div class="flex flex-wrap gap-1.5">
-              <button data-prompt="Audit my currently active outbound connections and flag anything unusual." class="copilot-chip rounded-lg border border-slate-700/80 bg-slate-900 px-2.5 py-1 text-[11px] text-slate-300 hover:border-cyan-400 transition">Audit active sockets</button>
-              <button data-prompt="Summarize recent security incidents and currently blocked IPs." class="copilot-chip rounded-lg border border-slate-700/80 bg-slate-900 px-2.5 py-1 text-[11px] text-slate-300 hover:border-cyan-400 transition">Recent threats</button>
-              <button data-prompt="Unblock 10.100.5.67, that is my test server." class="copilot-chip rounded-lg border border-slate-700/80 bg-slate-900 px-2.5 py-1 text-[11px] text-emerald-300 hover:border-emerald-400 transition">Unblock 10.100.5.67</button>
+        <section id="tab-copilot" class="tab-panel hidden flex flex-1 min-h-0 flex-col overflow-hidden">
+          <div class="flex h-[38px] shrink-0 items-center justify-between border-b border-[#1F242D] bg-[#10141C] px-4">
+            <span class="text-[12px] font-semibold text-[#E6EDF3]">Gemini Security Copilot</span>
+            <div class="flex items-center gap-1.5">
+              <button data-prompt="Show all blocked firewall rules and recent contained threats." class="copilot-chip rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[11px] text-[#8B949E] hover:border-[#2B3240] hover:text-[#E6EDF3]">Blocked rules</button>
+              <button data-prompt="Audit my active outbound connections for any suspicious process." class="copilot-chip rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[11px] text-[#8B949E] hover:border-[#2B3240] hover:text-[#E6EDF3]">Audit sockets</button>
+              <button data-prompt="Unblock 10.100.5.99" class="copilot-chip mono-num rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[11px] text-[#8B949E] hover:border-[#2B3240] hover:text-[#E6EDF3]">Unblock 10.100.5.99</button>
+              <button data-prompt="Whitelist 10.100.5.67" class="copilot-chip mono-num rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[11px] text-[#8B949E] hover:border-[#2B3240] hover:text-[#E6EDF3]">Whitelist 10.100.5.67</button>
             </div>
           </div>
 
-          <div id="copilotMessages" class="thin-scroll flex-1 space-y-3.5 overflow-y-auto p-5 text-sm">
-            <div class="max-w-2xl rounded-2xl border border-slate-800 bg-slate-900/75 px-4 py-3 text-xs leading-relaxed text-slate-300">
-              Ready to assist. Ask why a peer was blocked, request an audit of live outbound connections, or issue direct commands like <code class="rounded bg-slate-950 px-1.5 py-0.5 font-mono text-emerald-300">Unblock 10.100.5.67</code>.
+          <div id="copilotMessages" class="thin-scroll select-text flex-1 space-y-3 overflow-y-auto p-4">
+            <div class="max-w-2xl rounded border border-[#1F242D] bg-[#10141C] px-3.5 py-2.5 text-[12px] leading-relaxed text-[#8B949E]">
+              Copilot connected to live socket table, SQLite incident ledger, and OS firewall tools. Execute direct commands such as <code class="mono-num text-[#E6EDF3]">Unblock 10.100.5.99</code>, <code class="mono-num text-[#E6EDF3]">Whitelist 10.100.5.67</code>, or ask about any PID.
             </div>
           </div>
 
-          <form id="copilotForm" class="flex shrink-0 items-center gap-2.5 border-t border-slate-800/80 bg-slate-950/60 p-3.5">
-            <input id="copilotInput" type="text" autocomplete="off" placeholder="Ask CyberShield AI or issue a live firewall/process command..."
-              class="flex-1 rounded-xl border border-slate-700/80 bg-slate-900/90 px-4 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-cyan-400 focus:outline-none" />
-            <button id="copilotSendBtn" type="submit" class="rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 active:scale-95 transition disabled:opacity-50">
-              <i class="fa-solid fa-paper-plane mr-1.5"></i>Send
+          <form id="copilotForm" class="flex shrink-0 items-center gap-2 border-t border-[#1F242D] bg-[#10141C] p-3">
+            <input id="copilotInput" type="text" autocomplete="off"
+              placeholder="Enter security query or firewall/process command..."
+              class="select-text h-9 flex-1 rounded border border-[#1F242D] bg-[#0A0D12] px-3 text-[12px] text-[#E6EDF3] placeholder-[#59636E] focus:border-[#8B949E] focus:outline-none" />
+            <button id="copilotSendBtn" type="submit" class="h-9 rounded bg-[#E6EDF3] px-4 text-[12px] font-semibold text-[#0A0D12] hover:bg-white disabled:opacity-50">
+              Execute
             </button>
           </form>
         </section>
 
         <!-- =============================================================== -->
-        <!-- TAB 5: ACCOUNT & POLICY SETTINGS                                -->
+        <!-- VIEW 5: SENSOR & ALERTS CONFIGURATION                           -->
         <!-- =============================================================== -->
-        <section id="tab-settings" class="tab-panel hidden grid h-full grid-cols-1 lg:grid-cols-2 gap-4 overflow-y-auto thin-scroll pr-1">
-          <!-- Connected Google Account + Delivery Test -->
-          <div class="glass-card flex flex-col gap-4 rounded-2xl p-5">
-            <div>
-              <h3 class="text-sm font-semibold text-white">Google Account &amp; Alert Delivery</h3>
-              <p class="text-[11px] text-slate-400">Intrusion alerts are delivered through your signed-in Google account</p>
+        <section id="tab-settings" class="tab-panel hidden grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-[#1F242D] overflow-y-auto thin-scroll">
+          <!-- Operator Identity & Alert Verification -->
+          <div class="p-5 space-y-4">
+            <div class="border-b border-[#1F242D] pb-3">
+              <div class="text-[13px] font-semibold text-[#E6EDF3]">Operator Identity &amp; Alert Channels</div>
+              <div class="text-[11.5px] text-[#8B949E]">Post-verdict forensic alerts fire strictly on confirmed malicious events</div>
             </div>
 
-            <div class="flex items-center gap-4 rounded-2xl border border-slate-800/90 bg-slate-900/70 p-4">
-              <img id="settingsAvatar" src="" alt="" class="h-14 w-14 rounded-full border-2 border-cyan-500/40 bg-slate-800 object-cover" />
+            <div class="flex items-center gap-3 rounded border border-[#1F242D] bg-[#10141C] p-3.5">
+              <img id="settingsAvatar" src="" alt="" class="h-10 w-10 rounded-full border border-[#2B3240] bg-[#0A0D12] object-cover" />
               <div class="min-w-0 flex-1">
-                <div id="settingsName" class="truncate text-base font-bold text-white">--</div>
-                <div id="settingsEmail" class="truncate font-mono text-xs text-cyan-300">--</div>
-                <div id="settingsGmailStatus" class="mt-1 inline-flex items-center gap-1.5 font-mono text-[10px] text-emerald-400">
-                  <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>
-                  Gmail API send scope active
-                </div>
+                <div id="settingsName" class="truncate text-[13px] font-semibold text-[#E6EDF3]">--</div>
+                <div id="settingsEmail" class="mono-num truncate text-[11px] text-[#8B949E]">--</div>
+                <div id="settingsGmailScope" class="mono-num mt-0.5 text-[10.5px] text-[#10B981]">gmail.send authorized</div>
               </div>
             </div>
 
-            <div class="flex flex-wrap gap-2.5">
-              <button id="testAlertBtn" type="button" class="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 active:scale-95 transition">
-                <i class="fa-solid fa-paper-plane mr-1.5"></i>Send Test Alert to My Gmail
+            <div class="flex items-center gap-2">
+              <button id="testAlertBtn" type="button" class="h-8 rounded bg-[#10B981] px-3.5 text-[11.5px] font-semibold text-[#0A0D12] hover:bg-[#34d399]">
+                Send Test Alert to Gmail
               </button>
-              <button id="settingsLogoutBtn" type="button" class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition">
-                <i class="fa-solid fa-right-from-bracket mr-1.5"></i>Sign Out
+              <button id="settingsLogoutBtn" type="button" class="h-8 rounded border border-[#1F242D] bg-[#10141C] px-3.5 text-[11.5px] text-[#8B949E] hover:border-[#EF4444]/50 hover:text-[#EF4444]">
+                Sign Out
               </button>
             </div>
 
-            <div id="testAlertReceipt" class="hidden rounded-xl border border-slate-800 bg-slate-950/90 p-3.5 font-mono text-[11px] text-slate-300"></div>
+            <div id="testAlertReceipt" class="mono-num hidden rounded border border-[#1F242D] bg-[#10141C] p-3 text-[11px] text-[#8B949E]"></div>
 
-            <!-- Endpoint Info Card -->
-            <div class="mt-auto rounded-xl border border-slate-800/80 bg-slate-900/45 p-3.5 font-mono text-[11px] space-y-1.5 text-slate-400">
-              <div class="flex justify-between"><span>Hostname</span><span id="infoHost" class="text-slate-200">--</span></div>
-              <div class="flex justify-between"><span>Platform</span><span id="infoOs" class="text-slate-200">--</span></div>
-              <div class="flex justify-between"><span>AI Model</span><span id="infoModel" class="text-cyan-300">--</span></div>
-              <div class="flex justify-between"><span>Firewall Privileges</span><span id="infoAdmin" class="text-slate-200">--</span></div>
+            <div class="rounded border border-[#1F242D] bg-[#10141C] p-3.5 mono-num text-[11px] space-y-1.5 text-[#8B949E]">
+              <div class="flex justify-between"><span>Host</span><span id="infoHost" class="text-[#E6EDF3]">--</span></div>
+              <div class="flex justify-between"><span>OS</span><span id="infoOs" class="text-[#E6EDF3]">--</span></div>
+              <div class="flex justify-between"><span>Triage Model</span><span id="infoModel" class="text-[#E6EDF3]">--</span></div>
+              <div class="flex justify-between"><span>Sensor Cadence</span><span class="text-[#10B981]">80ms (SYN_SENT + ESTABLISHED)</span></div>
+              <div class="flex justify-between"><span>Privilege Level</span><span id="infoAdmin" class="text-[#E6EDF3]">--</span></div>
             </div>
           </div>
 
-          <!-- Detection & Notification Policy -->
-          <form id="settingsForm" class="glass-card flex flex-col gap-3.5 rounded-2xl p-5">
-            <div>
-              <h3 class="text-sm font-semibold text-white">Detection &amp; Notification Policy</h3>
-              <p class="text-[11px] text-slate-400">Saved locally in SQLite and enforced immediately by the background sensor</p>
+          <!-- Sensor Policy Form -->
+          <form id="settingsForm" class="p-5 space-y-4">
+            <div class="border-b border-[#1F242D] pb-3">
+              <div class="text-[13px] font-semibold text-[#E6EDF3]">Interception &amp; Alert Policy</div>
+              <div class="text-[11.5px] text-[#8B949E]">Persisted locally in SQLite and applied live</div>
             </div>
 
-            <label class="flex cursor-pointer items-center justify-between rounded-xl border border-slate-800/80 bg-slate-900/55 px-3.5 py-2.5 text-xs">
-              <span><strong>Autonomous AI Containment</strong><br/><span class="text-[11px] text-slate-400">Automatically alert, terminate PID, and block IP via Gemini</span></span>
-              <input id="setAutonomous" type="checkbox" class="h-4 w-4 accent-cyan-400" />
+            <label class="flex cursor-pointer items-center justify-between rounded border border-[#1F242D] bg-[#10141C] px-3.5 py-2.5">
+              <div>
+                <div class="text-[12px] font-medium text-[#E6EDF3]">Pre-Exfiltration Suspend &amp; Auto-Containment</div>
+                <div class="text-[11px] text-[#8B949E]">Freeze suspicious sockets in &lt;1ms during Gemini verdict</div>
+              </div>
+              <input id="setAutonomous" type="checkbox" class="h-4 w-4 accent-[#10B981]" />
             </label>
 
-            <label class="flex cursor-pointer items-center justify-between rounded-xl border border-slate-800/80 bg-slate-900/55 px-3.5 py-2.5 text-xs">
-              <span><strong>Gmail Security Alerts</strong><br/><span class="text-[11px] text-slate-400">Deliver formatted HTML intrusion emails to your Google inbox</span></span>
-              <input id="setGmailEnabled" type="checkbox" class="h-4 w-4 accent-emerald-400" />
+            <label class="flex cursor-pointer items-center justify-between rounded border border-[#1F242D] bg-[#10141C] px-3.5 py-2.5">
+              <div>
+                <div class="text-[12px] font-medium text-[#E6EDF3]">Gmail Forensic Notifications</div>
+                <div class="text-[11px] text-[#8B949E]">Send email strictly after confirmed MALICIOUS verdict</div>
+              </div>
+              <input id="setGmailEnabled" type="checkbox" class="h-4 w-4 accent-[#10B981]" />
             </label>
 
-            <div class="rounded-xl border border-slate-800/80 bg-slate-900/55 p-3.5 space-y-2">
-              <label class="flex cursor-pointer items-center justify-between text-xs">
-                <span><strong>Parallel ntfy.sh Mobile Push</strong><br/><span class="text-[11px] text-slate-400">Optional high-priority vibration alert via the ntfy app</span></span>
-                <input id="setNtfyEnabled" type="checkbox" class="h-4 w-4 accent-cyan-400" />
+            <div class="rounded border border-[#1F242D] bg-[#10141C] p-3.5 space-y-2">
+              <label class="flex cursor-pointer items-center justify-between">
+                <div>
+                  <div class="text-[12px] font-medium text-[#E6EDF3]">Parallel Ntfy Push Channel</div>
+                  <div class="text-[11px] text-[#8B949E]">Optional mobile push topic</div>
+                </div>
+                <input id="setNtfyEnabled" type="checkbox" class="h-4 w-4 accent-[#10B981]" />
               </label>
-              <input id="setNtfyTopic" type="text" placeholder="ntfy topic name"
-                class="w-full rounded-lg border border-slate-700/80 bg-slate-950 px-3 py-1.5 font-mono text-xs text-slate-100 focus:border-cyan-400 focus:outline-none" />
+              <input id="setNtfyTopic" type="text" placeholder="ntfy topic"
+                class="select-text mono-num h-8 w-full rounded border border-[#1F242D] bg-[#0A0D12] px-2.5 text-[11px] text-[#E6EDF3] focus:border-[#8B949E] focus:outline-none" />
             </div>
 
-            <div class="space-y-1.5">
-              <label class="block font-mono text-[10px] uppercase text-slate-400">Monitored Remote Ports</label>
-              <input id="setWatchPorts" type="text" placeholder="4444, 1337, 9001, 5555"
-                class="w-full rounded-lg border border-slate-700/80 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 focus:border-cyan-400 focus:outline-none" />
+            <div>
+              <label class="block text-[11px] font-medium text-[#8B949E] mb-1">High-Risk Watch Ports (comma-separated)</label>
+              <input id="setWatchPorts" type="text"
+                class="select-text mono-num h-8 w-full rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11px] text-[#E6EDF3] focus:border-[#8B949E] focus:outline-none" />
             </div>
 
-            <div class="space-y-1.5">
-              <label class="block font-mono text-[10px] uppercase text-slate-400">Suspicious Binary Names</label>
-              <input id="setSuspiciousProcs" type="text" placeholder="sim_intrusion.exe, ncat.exe, nc.exe"
-                class="w-full rounded-lg border border-slate-700/80 bg-slate-950 px-3 py-2 font-mono text-xs text-slate-100 focus:border-cyan-400 focus:outline-none" />
+            <div>
+              <label class="block text-[11px] font-medium text-[#8B949E] mb-1">Monitored LOLBins / Binaries (comma-separated)</label>
+              <input id="setSuspiciousProcs" type="text"
+                class="select-text mono-num h-8 w-full rounded border border-[#1F242D] bg-[#10141C] px-2.5 text-[11px] text-[#E6EDF3] focus:border-[#8B949E] focus:outline-none" />
             </div>
 
-            <button type="submit" class="mt-auto rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 active:scale-[0.99] transition">
-              Save Policy Settings
+            <button type="submit" class="h-8 rounded bg-[#E6EDF3] px-4 text-[11.5px] font-semibold text-[#0A0D12] hover:bg-white">
+              Save Policy
             </button>
           </form>
         </section>
 
       </main>
+
+      <!-- RIGHT-HAND PROCESS & SOCKET INSPECTOR DRAWER (380px) -->
+      <aside id="inspectorDrawer" class="hidden w-[380px] shrink-0 flex-col border-l border-[#1F242D] bg-[#10141C] overflow-hidden">
+        <div class="flex h-[38px] shrink-0 items-center justify-between border-b border-[#1F242D] px-4">
+          <span class="text-[12px] font-semibold text-[#E6EDF3]">Socket &amp; Process Forensics</span>
+          <button id="closeInspectorBtn" type="button" class="text-[#8B949E] hover:text-[#E6EDF3] text-base leading-none">&times;</button>
+        </div>
+        <div id="inspectorBody" class="thin-scroll select-text flex-1 space-y-4 overflow-y-auto p-4 text-[12px]"></div>
+      </aside>
+
     </div>
   </div>
 
   <script>
     // =========================================================================
-    // FINISHED ENDPOINT CONSOLE STATE (100% REAL TELEMETRY & OAUTH)
+    // STATE & UTILITIES
     // =========================================================================
     const appState = {
       user: null,
@@ -678,6 +601,7 @@
       isAdmin: false,
       geminiModel: 'gemini-3.5-flash-lite',
       activeConnections: [],
+      suspendedPids: [],
       telemetry: { tx_kbps: 0, rx_kbps: 0, cpu_percent: 0, mem_percent: 0, history: [] },
       incidents: [],
       totalIncidents: 0,
@@ -685,10 +609,11 @@
       whitelistIps: [],
       settings: {},
       activityFeed: [],
-      riskFilter: 'all',
-      soundOn: true,
+      connSegment: 'all',
+      searchQuery: '',
       activeTab: 'monitor',
-      dismissedBannerIncidentId: null
+      selectedKey: null,
+      dismissedThreatId: null
     };
 
     function esc(s) {
@@ -699,51 +624,24 @@
         .replace(/"/g, '&quot;');
     }
 
-    function formatInlineMarkdown(text) {
+    function fmtMd(text) {
       return esc(text)
-        .replace(/`([^`]+)`/g, '<code class="rounded bg-slate-950 px-1 py-0.5 font-mono text-[11px] text-cyan-300">$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="mono-num rounded border border-[#1F242D] bg-[#0A0D12] px-1 py-0.5 text-[11px] text-[#E6EDF3]">$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold text-[#E6EDF3]">$1</strong>')
         .replace(/\n/g, '<br/>');
     }
 
-    let audioCtx = null;
-    function playAlertChime() {
-      if (!appState.soundOn) return;
-      try {
-        if (!audioCtx) {
-          const Ctx = window.AudioContext || window.webkitAudioContext;
-          if (Ctx) audioCtx = new Ctx();
-        }
-        if (!audioCtx) return;
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(580, now);
-        osc.frequency.setValueAtTime(860, now + 0.11);
-        gain.gain.setValueAtTime(0.05, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
-        osc.start(now);
-        osc.stop(now + 0.29);
-      } catch (_) {}
-    }
-
-    function showToast(message, type = 'info') {
+    function notify(message, tone = 'neutral') {
       const stack = document.getElementById('toastStack');
-      const styles = {
-        success: 'border-emerald-500/50 bg-slate-950/95 text-emerald-200',
-        danger: 'border-rose-500/60 bg-slate-950/95 text-rose-200',
-        warn: 'border-amber-500/50 bg-slate-950/95 text-amber-200',
-        info: 'border-cyan-500/50 bg-slate-950/95 text-cyan-200'
-      };
+      const border = tone === 'danger' ? 'border-[#EF4444]/60 text-[#EF4444]'
+        : tone === 'warn' ? 'border-[#F59E0B]/60 text-[#F59E0B]'
+        : tone === 'emerald' ? 'border-[#10B981]/60 text-[#10B981]'
+        : 'border-[#2B3240] text-[#E6EDF3]';
       const el = document.createElement('div');
-      el.className = `pointer-events-auto max-w-sm rounded-xl border px-3.5 py-2.5 text-xs shadow-2xl backdrop-blur-md ${styles[type] || styles.info}`;
+      el.className = `pointer-events-auto max-w-sm rounded border bg-[#10141C] px-3 py-2 text-[11.5px] shadow-lg ${border}`;
       el.textContent = message;
       stack.appendChild(el);
-      setTimeout(() => el.remove(), 4500);
+      setTimeout(() => el.remove(), 3800);
     }
 
     async function apiJson(url, options = {}) {
@@ -756,6 +654,15 @@
       return data;
     }
 
+    function switchTab(tab) {
+      appState.activeTab = tab;
+      document.querySelectorAll('.nav-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+      });
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    }
+
     // =========================================================================
     // RENDERERS
     // =========================================================================
@@ -763,311 +670,301 @@
       const gate = document.getElementById('authGate');
       const shell = document.getElementById('consoleShell');
 
-      document.getElementById('loginHostMeta').textContent = `${appState.hostname} • ${appState.osName}`;
-      document.getElementById('loginModelMeta').textContent = `Engine: ${appState.geminiModel}`;
+      document.getElementById('loginHostMeta').textContent = `${appState.hostname} · ${appState.osName}`;
+      document.getElementById('loginAdminMeta').textContent = appState.isAdmin ? 'ADMIN FIREWALL' : 'STANDARD USER';
       document.getElementById('redirectUriDisplay').textContent = appState.redirectUri;
 
       if (appState.user) {
         gate.classList.add('hidden');
         shell.classList.remove('hidden');
-        renderUserProfile();
+        renderOperatorCard();
       } else {
         shell.classList.add('hidden');
         gate.classList.remove('hidden');
-        const readyBox = document.getElementById('oauthReadyBox');
-        const setupBox = document.getElementById('oauthSetupBox');
-        if (appState.oauthConfigured) {
-          readyBox.classList.remove('hidden');
-          setupBox.classList.add('hidden');
-        } else {
-          readyBox.classList.add('hidden');
-          setupBox.classList.remove('hidden');
-        }
+        document.getElementById('oauthReadyBox').classList.toggle('hidden', !appState.oauthConfigured);
+        document.getElementById('oauthSetupBox').classList.toggle('hidden', appState.oauthConfigured);
       }
     }
 
-    function renderUserProfile() {
+    function renderOperatorCard() {
       const u = appState.user;
       if (!u) return;
-      const fallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || u.email)}&background=0f172a&color=38bdf8`;
-      const pic = u.picture || fallbackAvatar;
+      const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || u.email)}&background=161B26&color=E6EDF3`;
+      const pic = u.picture || fallback;
 
       document.getElementById('sidebarAvatar').src = pic;
-      document.getElementById('sidebarName').textContent = u.name || 'Google User';
+      document.getElementById('sidebarName').textContent = u.name || 'Operator';
       document.getElementById('sidebarEmail').textContent = u.email || '';
-      const gmailOn = appState.settings.gmail_alerts_enabled !== false;
-      document.getElementById('sidebarGmailBadge').innerHTML = u.gmail_authorized
-        ? `<i class="fa-solid fa-envelope-circle-check mr-1"></i>${gmailOn ? 'Gmail Alerts ON' : 'Gmail Alerts OFF'}`
-        : '<i class="fa-solid fa-triangle-exclamation mr-1 text-amber-400"></i>Re-auth Gmail';
+      const gmailOn = appState.settings.gmail_alerts_enabled !== false && u.gmail_authorized;
+      const dot = document.getElementById('sidebarGmailDot');
+      dot.textContent = gmailOn ? 'Gmail Armed' : 'Gmail Off';
+      dot.className = `mono-num ${gmailOn ? 'text-[#10B981]' : 'text-[#8B949E]'}`;
 
       document.getElementById('settingsAvatar').src = pic;
-      document.getElementById('settingsName').textContent = u.name || 'Google User';
+      document.getElementById('settingsName').textContent = u.name || 'Operator';
       document.getElementById('settingsEmail').textContent = u.email || '';
-      document.getElementById('settingsGmailStatus').innerHTML = u.gmail_authorized
-        ? '<span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span>Google OAuth active • gmail.send authorized'
-        : '<span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>Sign out &amp; sign in to grant Gmail send scope';
+      document.getElementById('settingsGmailScope').textContent = u.gmail_authorized
+        ? 'OAuth 2.0 active · gmail.send granted'
+        : 'Missing gmail.send — sign out & re-authenticate';
     }
 
-    function renderTelemetry() {
-      const t = appState.telemetry || {};
-      const tx = Number(t.tx_kbps || 0);
-      const rx = Number(t.rx_kbps || 0);
-      document.getElementById('miniCpu').textContent = `${Math.round(t.cpu_percent || 0)}%`;
-      document.getElementById('miniMem').textContent = `${Math.round(t.mem_percent || 0)}%`;
-      document.getElementById('miniTx').textContent = `${tx.toFixed(1)} KB/s`;
-      document.getElementById('miniRx').textContent = `${rx.toFixed(1)} KB/s`;
-      document.getElementById('chartTxLabel').textContent = tx.toFixed(1);
-      document.getElementById('chartRxLabel').textContent = rx.toFixed(1);
-
-      const history = Array.isArray(t.history) ? t.history : [];
-      if (history.length < 2) return;
-
-      const W = 320, H = 48;
-      const maxVal = Math.max(10, ...history.map(p => Math.max(p.tx || 0, p.rx || 0)));
-
-      function buildPaths(key) {
-        const pts = history.map((p, i) => {
-          const x = (i / Math.max(1, history.length - 1)) * W;
-          const y = H - 3 - ((Math.min(maxVal, p[key] || 0) / maxVal) * (H - 8));
-          return [x.toFixed(1), y.toFixed(1)];
-        });
-        const line = pts.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt[0]},${pt[1]}`).join(' ');
-        const area = `${line} L${W},${H} L0,${H} Z`;
-        return { line, area };
-      }
-
-      const txP = buildPaths('tx');
-      const rxP = buildPaths('rx');
-      document.getElementById('txLine').setAttribute('d', txP.line);
-      document.getElementById('txArea').setAttribute('d', txP.area);
-      document.getElementById('rxLine').setAttribute('d', rxP.line);
-      document.getElementById('rxArea').setAttribute('d', rxP.area);
-    }
-
-    function renderActiveThreatBanner() {
-      const banner = document.getElementById('activeThreatBanner');
-      const latest = appState.incidents[0];
-      if (!latest || latest.id === appState.dismissedBannerIncidentId) {
-        banner.classList.add('hidden');
-        return;
-      }
-
-      const ageMs = Date.now() - Date.parse(latest.timestamp || 0);
-      const isRecent = !Number.isNaN(ageMs) && ageMs < 90000;
-      const isActive = appState.protectionStatus === 'CONTAINING' || isRecent;
-
-      if (!isActive) {
-        banner.classList.add('hidden');
-        return;
-      }
-
-      banner.classList.remove('hidden');
-      document.getElementById('bannerTitle').textContent =
-        `${latest.status}: ${latest.process_name} (PID ${latest.pid}) → ${latest.remote_ip}:${latest.remote_port}`;
-      document.getElementById('bannerSummary').textContent =
-        latest.ai_summary || 'Gemini autonomous containment in progress...';
-
-      const setPill = (id, active, text) => {
-        const el = document.getElementById(id);
-        el.textContent = text;
-        el.className = active
-          ? 'rounded-md px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-semibold'
-          : 'rounded-md px-2 py-0.5 bg-slate-900 text-slate-400 border border-slate-700';
-      };
-      setPill('bStepGmail', !!latest.gmail_sent, latest.gmail_sent ? '✓ Gmail Sent' : 'Gmail');
-      setPill('bStepKill', !!latest.process_killed, latest.process_killed ? '✓ PID Cut' : 'PID Cut');
-      setPill('bStepBlock', !!latest.ip_blocked, latest.ip_blocked ? '✓ Blocked' : 'Block IP');
-    }
-
-    function renderHeaderAndKpis() {
-      document.getElementById('hostBadge').textContent = `${appState.hostname} • ${appState.osName}`;
+    function renderHeaderAndMetrics() {
+      document.getElementById('headerHost').textContent = `${appState.hostname} · ${appState.osName}`;
       document.getElementById('infoHost').textContent = appState.hostname;
       document.getElementById('infoOs').textContent = appState.osName;
       document.getElementById('infoModel').textContent = appState.geminiModel;
-      document.getElementById('infoAdmin').textContent = appState.isAdmin ? 'Administrator / Root' : 'Standard User';
+      document.getElementById('infoAdmin').textContent = appState.isAdmin ? 'Administrator (WFP/netsh active)' : 'Standard User (un-elevated)';
 
-      const adminEl = document.getElementById('adminBadge');
+      const adminBadge = document.getElementById('adminEnforcedBadge');
+      const elevateBtn = document.getElementById('elevateAdminBtn');
       if (appState.isAdmin) {
-        adminEl.textContent = 'ADMIN FIREWALL READY';
-        adminEl.className = 'rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-2.5 py-0.5 font-mono text-[10px] text-emerald-300';
+        adminBadge.classList.remove('hidden');
+        adminBadge.classList.add('inline-flex');
+        elevateBtn.classList.add('hidden');
+        elevateBtn.classList.remove('inline-flex');
       } else {
-        adminEl.textContent = 'STANDARD USER MODE';
-        adminEl.className = 'rounded-lg border border-amber-500/35 bg-amber-500/10 px-2.5 py-0.5 font-mono text-[10px] text-amber-300';
-      }
-
-      const posture = document.getElementById('postureBadge');
-      if (appState.protectionStatus === 'CONTAINING') {
-        posture.textContent = 'CONTAINING THREAT';
-        posture.className = 'rounded-full border border-rose-500/50 bg-rose-500/20 px-3 py-1 font-mono text-[11px] font-bold text-rose-300 animate-pulse';
-      } else if (appState.protectionStatus === 'MONITOR_ONLY') {
-        posture.textContent = 'MONITOR ONLY';
-        posture.className = 'rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 font-mono text-[11px] font-bold text-amber-300';
-      } else {
-        posture.textContent = 'ARMED';
-        posture.className = 'rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 font-mono text-[11px] font-bold text-emerald-300';
+        adminBadge.classList.add('hidden');
+        adminBadge.classList.remove('inline-flex');
+        elevateBtn.classList.remove('hidden');
+        elevateBtn.classList.add('inline-flex');
       }
 
       document.getElementById('quickAutonomousToggle').checked = appState.settings.autonomous_mode !== false;
-      document.getElementById('kpiConnections').textContent = String(appState.activeConnections.length);
-      document.getElementById('kpiIncidents').textContent = String(appState.totalIncidents);
-      document.getElementById('kpiBlocked').textContent = String(appState.blockedIps.length);
+
+      const pDot = document.getElementById('postureDot');
+      const pTxt = document.getElementById('postureText');
+      const pBox = document.getElementById('postureIndicator');
+      const frozenCount = appState.suspendedPids.length;
+
+      if (frozenCount > 0 || appState.protectionStatus === 'CONTAINING') {
+        pDot.className = 'h-1.5 w-1.5 rounded-full bg-[#F59E0B] animate-pulse';
+        pTxt.textContent = 'TRIAGING';
+        pBox.className = 'mono-num inline-flex items-center gap-1.5 rounded border border-[#F59E0B]/40 bg-[#F59E0B]/10 px-2 py-0.5 text-[10.5px] font-medium text-[#F59E0B]';
+      } else if (appState.protectionStatus === 'MONITOR_ONLY') {
+        pDot.className = 'h-1.5 w-1.5 rounded-full bg-[#8B949E]';
+        pTxt.textContent = 'MONITOR';
+        pBox.className = 'mono-num inline-flex items-center gap-1.5 rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[10.5px] font-medium text-[#8B949E]';
+      } else {
+        pDot.className = 'h-1.5 w-1.5 rounded-full bg-[#10B981]';
+        pTxt.textContent = 'ARMED';
+        pBox.className = 'mono-num inline-flex items-center gap-1.5 rounded border border-[#1F242D] bg-[#0A0D12] px-2 py-0.5 text-[10.5px] font-medium text-[#10B981]';
+      }
+
+      // 4 KPI Metrics
+      document.getElementById('kpiActiveSockets').textContent = String(appState.activeConnections.length);
+      const frozenEl = document.getElementById('kpiFrozen');
+      frozenEl.textContent = String(frozenCount);
+      frozenEl.className = `mono-num mt-0.5 text-[17px] font-semibold ${frozenCount > 0 ? 'text-[#F59E0B]' : 'text-[#8B949E]'}`;
+
+      document.getElementById('kpiBlockedPeers').textContent = String(appState.blockedIps.length);
+      const neutralized = appState.incidents.filter(i => i.status === 'BLOCKED' || i.status === 'CONTAINED').length;
+      const neutEl = document.getElementById('kpiNeutralized');
+      neutEl.textContent = String(neutralized);
+      neutEl.className = `mono-num mt-0.5 text-[17px] font-semibold ${neutralized > 0 ? 'text-[#EF4444]' : 'text-[#E6EDF3]'}`;
 
       document.getElementById('navConnCount').textContent = String(appState.activeConnections.length);
-      document.getElementById('navIncCount').textContent = String(appState.totalIncidents);
+      document.getElementById('navIncCount').textContent = String(neutralized);
       document.getElementById('navBlockCount').textContent = String(appState.blockedIps.length);
+
+      // Telemetry readout & sparkline
+      const t = appState.telemetry || {};
+      document.getElementById('hdrTx').textContent = Number(t.tx_kbps || 0).toFixed(1);
+      document.getElementById('hdrRx').textContent = Number(t.rx_kbps || 0).toFixed(1);
+      document.getElementById('hdrCpu').textContent = `${Math.round(t.cpu_percent || 0)}%`;
+      document.getElementById('hdrMem').textContent = `${Math.round(t.mem_percent || 0)}%`;
+
+      const hist = Array.isArray(t.history) ? t.history : [];
+      if (hist.length >= 2) {
+        const W = 96, H = 26;
+        const maxV = Math.max(8, ...hist.map(p => Math.max(p.tx || 0, p.rx || 0)));
+        const mkLine = (k) => hist.map((p, idx) => {
+          const x = (idx / (hist.length - 1)) * W;
+          const y = H - 2 - ((Math.min(maxV, p[k] || 0) / maxV) * (H - 4));
+          return `${idx === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        document.getElementById('sparkTx').setAttribute('d', mkLine('tx'));
+        document.getElementById('sparkRx').setAttribute('d', mkLine('rx'));
+      }
+    }
+
+    function renderConfirmedThreatBar() {
+      const bar = document.getElementById('confirmedThreatBar');
+      const confirmed = appState.incidents.find(i => i.status === 'BLOCKED');
+      if (!confirmed || confirmed.id === appState.dismissedThreatId) {
+        bar.classList.add('hidden');
+        return;
+      }
+      const ageMs = Date.now() - Date.parse(confirmed.timestamp || 0);
+      if (Number.isNaN(ageMs) || ageMs > 120000) {
+        bar.classList.add('hidden');
+        return;
+      }
+      bar.classList.remove('hidden');
+      document.getElementById('threatBarTitle').textContent =
+        `BLOCKED: ${confirmed.process_name} (PID ${confirmed.pid}) -> ${confirmed.remote_ip}:${confirmed.remote_port}`;
+      document.getElementById('threatBarSummary').textContent = confirmed.ai_summary || '';
+      document.getElementById('threatBarInspectBtn').onclick = () => openIncidentInspector(confirmed.id);
     }
 
     function renderConnectionsTable() {
       const tbody = document.getElementById('connectionsTbody');
-      const q = (document.getElementById('connFilterInput').value || '').trim().toLowerCase();
-      const filtered = appState.activeConnections.filter(c => {
-        if (appState.riskFilter !== 'all' && c.risk !== appState.riskFilter) return false;
+      const q = appState.searchQuery.toLowerCase();
+
+      const rows = appState.activeConnections.filter(c => {
+        if (appState.connSegment === 'attention' && c.risk !== 'high' && c.risk !== 'analyzing') return false;
+        if (appState.connSegment === 'blocked' && c.risk !== 'blocked') return false;
+        if (appState.connSegment === 'trusted' && c.risk !== 'trusted') return false;
         if (!q) return true;
         return (
           String(c.process_name || '').toLowerCase().includes(q) ||
+          String(c.cmdline || '').toLowerCase().includes(q) ||
           String(c.remote_ip || '').toLowerCase().includes(q) ||
           String(c.remote_port || '').includes(q) ||
           String(c.pid || '').includes(q)
         );
       });
 
-      if (!filtered.length) {
-        tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-10 text-center font-sans text-xs text-slate-500">No matching active outbound TCP connections.</td></tr>`;
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-[12px] text-[#59636E]">No active sockets match the current filter.</td></tr>`;
         return;
       }
 
-      const badges = {
-        high: '<span class="inline-flex items-center gap-1 rounded-md bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold text-rose-300"><span class="h-1.5 w-1.5 rounded-full bg-rose-400"></span>HIGH RISK</span>',
-        blocked: '<span class="rounded-md bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold text-amber-300">BLOCKED</span>',
-        trusted: '<span class="rounded-md bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 text-[10px] text-emerald-300">TRUSTED</span>',
-        normal: '<span class="rounded-md bg-slate-800/90 px-2 py-0.5 text-[10px] text-slate-400">NORMAL</span>'
+      const postureCell = (r) => {
+        if (r === 'high') return '<span class="mono-num text-[11px] font-semibold text-[#EF4444]">HIGH</span>';
+        if (r === 'analyzing') return '<span class="mono-num text-[11px] font-semibold text-[#F59E0B]">TRIAGING</span>';
+        if (r === 'blocked') return '<span class="mono-num text-[11px] font-semibold text-[#EF4444]">BLOCKED</span>';
+        if (r === 'trusted') return '<span class="mono-num text-[11px] text-[#10B981]">TRUSTED</span>';
+        return '<span class="mono-num text-[11px] text-[#8B949E]">NORMAL</span>';
       };
 
-      tbody.innerHTML = filtered.map(c => `
-        <tr class="${c.risk === 'high' ? 'bg-rose-950/25' : 'hover:bg-slate-900/55'} transition">
-          <td class="px-4 py-2.5">
-            <div class="flex items-center gap-2">
-              <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-800/90 text-[10px] ${c.risk === 'high' ? 'text-rose-300' : 'text-cyan-300'}">
-                <i class="fa-solid fa-terminal"></i>
-              </span>
-              <span class="font-semibold text-slate-100">${esc(c.process_name)}</span>
-            </div>
+      const stateCell = (c) => {
+        if (c.suspended || c.status === 'SUSPENDED') {
+          return '<span class="mono-num rounded border border-[#F59E0B]/40 bg-[#F59E0B]/10 px-1.5 py-0.5 text-[10px] text-[#F59E0B]">SUSPENDED</span>';
+        }
+        if (c.socket_state === 'SYN_SENT' || c.status === 'SYN_SENT') {
+          return '<span class="mono-num text-[11px] text-[#F59E0B]">SYN_SENT</span>';
+        }
+        return `<span class="mono-num text-[11px] text-[#8B949E]">${esc(c.status)}</span>`;
+      };
+
+      tbody.innerHTML = rows.map(c => {
+        const key = `${c.pid}:${c.remote_ip}:${c.remote_port}`;
+        const isSel = appState.selectedKey === key;
+        const cloudTag = c.cloud_provider
+          ? `<span class="ml-1.5 rounded border border-[#1F242D] bg-[#10141C] px-1 py-0.2 text-[9.5px] text-[#8B949E]">${esc(c.cloud_provider)}</span>`
+          : '';
+        return `
+          <tr onclick="inspectSocket('${esc(key)}')" class="table-row cursor-pointer ${isSel ? 'selected' : ''}">
+            <td class="py-2 pl-4 pr-3 max-w-[360px]">
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-[#E6EDF3]">${esc(c.process_name)}</span>
+                ${c.parent_name && c.parent_name !== 'unknown' ? `<span class="mono-num text-[10px] text-[#59636E]">&larr; ${esc(c.parent_name)}</span>` : ''}
+              </div>
+              <div class="mono-num truncate text-[10.5px] text-[#8B949E]">${esc(c.cmdline || c.process_name)}</div>
+            </td>
+            <td class="mono-num py-2 px-3 text-[11.5px] text-[#8B949E]">${esc(c.pid)}</td>
+            <td class="mono-num py-2 px-3 text-[11.5px] text-[#E6EDF3]">
+              ${esc(c.remote_ip)}<span class="text-[#59636E]">:${esc(c.remote_port)}</span>${cloudTag}
+            </td>
+            <td class="py-2 px-3">${stateCell(c)}</td>
+            <td class="py-2 px-3">${postureCell(c.risk)}</td>
+            <td class="py-2 pl-3 pr-4 text-right whitespace-nowrap space-x-1" onclick="event.stopPropagation()">
+              <button onclick="inspectSocket('${esc(key)}')" class="rounded border border-[#1F242D] bg-[#10141C] px-2 py-0.5 text-[10.5px] text-[#8B949E] hover:border-[#2B3240] hover:text-[#E6EDF3]">Inspect</button>
+              ${c.risk !== 'trusted' ? `<button onclick="quickTrustIp('${esc(c.remote_ip)}', '${esc(c.process_name)}')" class="rounded border border-[#1F242D] bg-[#10141C] px-2 py-0.5 text-[10.5px] text-[#10B981] hover:border-[#10B981]/50">Trust</button>` : ''}
+              ${c.pid > 4 ? `<button onclick="manualKillPid(${Number(c.pid)}, '${esc(c.process_name)}')" class="rounded border border-[#1F242D] bg-[#10141C] px-2 py-0.5 text-[10.5px] text-[#8B949E] hover:border-[#EF4444]/50 hover:text-[#EF4444]">Kill</button>` : ''}
+              <button onclick="manualBlockIp('${esc(c.remote_ip)}', '${esc(c.process_name)}')" class="rounded border border-[#1F242D] bg-[#10141C] px-2 py-0.5 text-[10.5px] text-[#EF4444] hover:border-[#EF4444]/60">Block /32</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderActivityTape() {
+      const tape = document.getElementById('activityTape');
+      document.getElementById('eventStreamCount').textContent = `${appState.activityFeed.length} events`;
+      if (!appState.activityFeed.length) {
+        tape.innerHTML = '<div class="py-4 text-[#59636E]">Sensor initialized — monitoring outbound sockets...</div>';
+        return;
+      }
+      const tagColor = (lvl) => lvl === 'danger' ? 'text-[#EF4444]'
+        : lvl === 'warn' ? 'text-[#F59E0B]'
+        : lvl === 'success' ? 'text-[#10B981]'
+        : 'text-[#8B949E]';
+
+      tape.innerHTML = appState.activityFeed.slice(0, 30).map(e => `
+        <div class="flex items-baseline gap-3 py-1">
+          <span class="shrink-0 text-[#59636E]">${esc((e.timestamp || '').slice(11, 19))}Z</span>
+          <span class="w-[58px] shrink-0 uppercase ${tagColor(e.level)}">${esc(e.level || 'info')}</span>
+          <span class="truncate text-[#E6EDF3]">${esc(e.message)}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderIncidentsTable() {
+      const tbody = document.getElementById('incidentsTbody');
+      const includeBenign = document.getElementById('showBenignClearedToggle').checked;
+      const q = appState.searchQuery.toLowerCase();
+
+      const rows = appState.incidents.filter(i => {
+        if (!includeBenign && i.status === 'BENIGN_CLEARED') return false;
+        if (!q) return true;
+        return (
+          String(i.remote_ip || '').toLowerCase().includes(q) ||
+          String(i.process_name || '').toLowerCase().includes(q) ||
+          String(i.ai_summary || '').toLowerCase().includes(q) ||
+          String(i.trigger_reason || '').toLowerCase().includes(q)
+        );
+      });
+
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-[12px] text-[#59636E]">No security incidents recorded in the selected view.</td></tr>`;
+        return;
+      }
+
+      const statusBadge = (st) => {
+        if (st === 'BLOCKED') return '<span class="mono-num text-[11px] font-semibold text-[#EF4444]">BLOCKED</span>';
+        if (st === 'ANALYZING') return '<span class="mono-num text-[11px] font-semibold text-[#F59E0B]">ANALYZING</span>';
+        if (st === 'BENIGN_CLEARED') return '<span class="mono-num text-[11px] text-[#10B981]">CLEARED</span>';
+        return `<span class="mono-num text-[11px] text-[#8B949E]">${esc(st)}</span>`;
+      };
+
+      tbody.innerHTML = rows.map(inc => `
+        <tr onclick="openIncidentInspector(${Number(inc.id)})" class="table-row cursor-pointer">
+          <td class="mono-num py-2.5 pl-4 pr-3 text-[11px] text-[#8B949E]">${esc((inc.timestamp || '').replace('T', ' ').replace('Z', ''))}</td>
+          <td class="py-2.5 px-3">
+            <span class="font-medium text-[#E6EDF3]">${esc(inc.process_name)}</span>
+            <span class="mono-num ml-1 text-[11px] text-[#59636E]">#${esc(inc.pid)}</span>
           </td>
-          <td class="px-3 py-2.5 text-slate-400">${esc(c.pid)}</td>
-          <td class="px-3 py-2.5">
-            <span class="text-cyan-300">${esc(c.remote_ip)}</span><span class="text-slate-500">:${esc(c.remote_port)}</span>
-          </td>
-          <td class="px-3 py-2.5">${badges[c.risk] || badges.normal}</td>
-          <td class="px-4 py-2.5 text-right whitespace-nowrap space-x-1">
-            ${c.risk !== 'trusted' ? `<button onclick="quickTrustIp('${esc(c.remote_ip)}', '${esc(c.process_name)}')" class="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 transition" title="Add to Whitelist">Trust</button>` : ''}
-            ${c.pid > 0 ? `<button onclick="manualKillPid(${Number(c.pid)}, '${esc(c.process_name)}')" class="rounded-md border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] text-rose-300 hover:bg-rose-500/25 transition">Kill</button>` : ''}
-            <button onclick="manualBlockIp('${esc(c.remote_ip)}', '${esc(c.process_name)}')" class="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/25 transition">Block</button>
+          <td class="mono-num py-2.5 px-3 text-[11.5px] text-[#E6EDF3]">${esc(inc.remote_ip)}:${esc(inc.remote_port)}</td>
+          <td class="py-2.5 px-3">${statusBadge(inc.status)}</td>
+          <td class="py-2.5 px-3 text-[11.5px] text-[#8B949E] max-w-[420px] truncate">${esc(inc.ai_summary || inc.trigger_reason || 'Evaluating...')}</td>
+          <td class="py-2.5 pl-3 pr-4 text-right whitespace-nowrap" onclick="event.stopPropagation()">
+            ${inc.ip_blocked
+              ? `<button onclick="unblockIp('${esc(inc.remote_ip)}')" class="rounded border border-[#1F242D] bg-[#10141C] px-2.5 py-0.5 text-[11px] text-[#10B981] hover:border-[#10B981]/50">Unblock</button>`
+              : `<button onclick="openIncidentInspector(${Number(inc.id)})" class="rounded border border-[#1F242D] bg-[#10141C] px-2.5 py-0.5 text-[11px] text-[#8B949E] hover:text-[#E6EDF3]">Details</button>`}
           </td>
         </tr>
       `).join('');
     }
 
-    function renderActivityFeed() {
-      const list = document.getElementById('activityFeedList');
-      if (!appState.activityFeed.length) {
-        list.innerHTML = '<div class="py-8 text-center text-slate-500">Listening for endpoint events...</div>';
-        return;
-      }
-      const dotCol = { danger: 'bg-rose-400', warn: 'bg-amber-400', success: 'bg-emerald-400', info: 'bg-cyan-400' };
-      list.innerHTML = appState.activityFeed.slice(0, 20).map(item => `
-        <div class="rounded-xl border border-slate-800/75 bg-slate-900/50 p-2.5">
-          <div class="flex items-center justify-between font-mono text-[9px] text-slate-500">
-            <span class="inline-flex items-center gap-1.5">
-              <span class="h-1.5 w-1.5 rounded-full ${dotCol[item.level] || 'bg-cyan-400'}"></span>
-              ${esc((item.level || 'info').toUpperCase())}
-            </span>
-            <span>${esc((item.timestamp || '').slice(11, 19))} UTC</span>
-          </div>
-          <div class="mt-1 text-[11px] leading-snug text-slate-200">${esc(item.message)}</div>
-        </div>
-      `).join('');
-    }
-
-    function renderIncidents() {
-      const list = document.getElementById('incidentsList');
-      const q = (document.getElementById('incFilterInput').value || '').trim().toLowerCase();
-      const filtered = appState.incidents.filter(i => {
-        if (!q) return true;
-        return (
-          String(i.remote_ip || '').toLowerCase().includes(q) ||
-          String(i.process_name || '').toLowerCase().includes(q) ||
-          String(i.ai_summary || '').toLowerCase().includes(q)
-        );
-      });
-
-      if (!filtered.length) {
-        list.innerHTML = `
-          <div class="glass-card rounded-2xl p-12 text-center">
-            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-              <i class="fa-solid fa-shield-check text-xl"></i>
-            </div>
-            <div class="mt-3 text-sm font-semibold text-white">Endpoint Clean — No Threats Recorded</div>
-            <p class="mt-1 max-w-md mx-auto text-xs text-slate-400">CyberShield Mesh is continuously inspecting outbound TCP connections. Detected intrusions appear here with full Gemini forensics and Gmail receipts.</p>
-          </div>`;
-        return;
-      }
-
-      list.innerHTML = filtered.map(inc => `
-        <div class="glass-card rounded-2xl p-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="font-mono text-xs font-bold text-rose-300">${esc(inc.remote_ip)}:${esc(inc.remote_port)}</span>
-              <span class="rounded-md bg-slate-800/90 px-2 py-0.5 font-mono text-[10px] text-cyan-300">${esc(inc.process_name)} (PID ${esc(inc.pid)})</span>
-              <span class="rounded-md border border-slate-700 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-slate-200">${esc(inc.status)}</span>
-            </div>
-            <span class="font-mono text-[10px] text-slate-500">Incident #${esc(inc.id)} • ${esc((inc.timestamp || '').replace('T', ' ').replace('Z', ' UTC'))}</span>
-          </div>
-
-          <p class="mt-2.5 text-xs leading-relaxed text-slate-200">
-            ${esc(inc.ai_summary || 'Gemini is analyzing live telemetry...')}
-          </p>
-
-          <div class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/75 pt-2.5">
-            <div class="flex flex-wrap gap-1.5 font-mono text-[10px]">
-              <span class="rounded-md px-2 py-0.5 ${inc.gmail_sent ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
-                <i class="fa-solid fa-envelope mr-1"></i>${inc.gmail_sent ? `Gmail Sent${inc.gmail_message_id ? ' #' + esc(inc.gmail_message_id.slice(0, 6)) : ''}` : 'Gmail Not Sent'}
-              </span>
-              <span class="rounded-md px-2 py-0.5 ${inc.ntfy_sent ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
-                <i class="fa-solid fa-mobile-screen mr-1"></i>${inc.ntfy_sent ? 'ntfy Push Sent' : 'ntfy Off'}
-              </span>
-              <span class="rounded-md px-2 py-0.5 ${inc.process_killed ? 'bg-sky-500/15 text-sky-300 border border-sky-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
-                <i class="fa-solid fa-skull-crossbones mr-1"></i>${inc.process_killed ? 'Process Killed' : 'PID Active'}
-              </span>
-              <span class="rounded-md px-2 py-0.5 ${inc.ip_blocked ? 'bg-amber-500/15 text-amber-300 border border-amber-500/35' : 'bg-slate-900 text-slate-500 border border-slate-800'}">
-                <i class="fa-solid fa-ban mr-1"></i>${inc.ip_blocked ? 'Firewall Blocked' : 'Unblocked'}
-              </span>
-            </div>
-            ${inc.ip_blocked
-              ? `<button onclick="unblockIp('${esc(inc.remote_ip)}')" class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 hover:bg-emerald-500/20 transition">Unblock ${esc(inc.remote_ip)}</button>`
-              : ''}
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function renderFirewallAndWhitelist() {
+    function renderFirewallLists() {
       const bList = document.getElementById('blockedList');
       if (!appState.blockedIps.length) {
-        bList.innerHTML = '<div class="py-10 text-center text-xs text-slate-500">No IPs are currently blocked.</div>';
+        bList.innerHTML = '<div class="p-8 text-center text-[12px] text-[#59636E]">No active /32 IP blocks.</div>';
       } else {
         bList.innerHTML = appState.blockedIps.map(b => `
-          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+          <div class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[#161B26]">
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <span class="font-mono text-xs font-bold text-rose-300">${esc(b.ip)}</span>
-                <span class="rounded px-1.5 py-0.5 font-mono text-[9px] ${b.simulated ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}">
-                  ${b.simulated ? 'POLICY RECORDED' : 'OS FIREWALL ACTIVE'}
+                <span class="mono-num text-[12px] font-semibold text-[#E6EDF3]">${esc(b.ip)}/32</span>
+                <span class="mono-num text-[10px] ${b.simulated ? 'text-[#F59E0B]' : 'text-[#10B981]'}">
+                  ${b.simulated ? 'POLICY ONLY (ELEVATE ADMIN)' : 'WFP / NETSH ENFORCED'}
                 </span>
               </div>
-              <div class="mt-0.5 truncate text-[11px] text-slate-400">${esc(b.reason || 'Blocked by CyberShield')}</div>
-              <div class="mt-0.5 truncate font-mono text-[9px] text-slate-500">${esc(b.rule_out || '')} • ${esc(b.rule_in || '')}</div>
+              <div class="mt-0.5 truncate text-[11px] text-[#8B949E]">${esc(b.reason || 'Autonomous containment')}</div>
+              <div class="mono-num mt-0.5 truncate text-[10px] text-[#59636E]">${esc(b.rule_out || '')} · ${esc(b.rule_in || '')}</div>
             </div>
-            <button onclick="unblockIp('${esc(b.ip)}')" class="shrink-0 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/20 transition">
+            <button onclick="unblockIp('${esc(b.ip)}')" class="shrink-0 rounded border border-[#1F242D] bg-[#10141C] px-2.5 py-1 text-[11px] text-[#E6EDF3] hover:border-[#10B981]/60 hover:text-[#10B981]">
               Unblock
             </button>
           </div>
@@ -1076,15 +973,15 @@
 
       const wList = document.getElementById('whitelistList');
       if (!appState.whitelistIps.length) {
-        wList.innerHTML = '<div class="py-10 text-center text-xs text-slate-500">No trusted IPs whitelisted yet.</div>';
+        wList.innerHTML = '<div class="p-8 text-center text-[12px] text-[#59636E]">No whitelisted peers configured.</div>';
       } else {
         wList.innerHTML = appState.whitelistIps.map(w => `
-          <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3">
+          <div class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-[#161B26]">
             <div class="min-w-0">
-              <div class="font-mono text-xs font-bold text-emerald-300">${esc(w.ip)}</div>
-              <div class="mt-0.5 truncate text-[11px] text-slate-400">${esc(w.label || 'Trusted peer')}</div>
+              <div class="mono-num text-[12px] font-semibold text-[#10B981]">${esc(w.ip)}</div>
+              <div class="mt-0.5 truncate text-[11px] text-[#8B949E]">${esc(w.label || 'Trusted peer')}</div>
             </div>
-            <button onclick="removeWhitelistIp('${esc(w.ip)}')" class="shrink-0 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:border-rose-400 hover:text-rose-300 transition">
+            <button onclick="removeWhitelistIp('${esc(w.ip)}')" class="shrink-0 rounded border border-[#1F242D] bg-[#10141C] px-2.5 py-1 text-[11px] text-[#8B949E] hover:border-[#EF4444]/50 hover:text-[#EF4444]">
               Remove
             </button>
           </div>
@@ -1102,61 +999,163 @@
       document.getElementById('setSuspiciousProcs').value = (s.suspicious_processes || []).join(', ');
     }
 
+    // =========================================================================
+    // SLIDE-OVER INSPECTOR DRAWER
+    // =========================================================================
+    window.inspectSocket = (key) => {
+      appState.selectedKey = key;
+      renderConnectionsTable();
+      const conn = appState.activeConnections.find(c => `${c.pid}:${c.remote_ip}:${c.remote_port}` === key);
+      if (!conn) return;
+      const matchingInc = appState.incidents.find(i => i.remote_ip === conn.remote_ip && i.pid === conn.pid)
+        || appState.incidents.find(i => i.remote_ip === conn.remote_ip);
+
+      const drawer = document.getElementById('inspectorDrawer');
+      const body = document.getElementById('inspectorBody');
+      drawer.classList.remove('hidden');
+      drawer.classList.add('flex');
+
+      body.innerHTML = `
+        <div class="space-y-2 border-b border-[#1F242D] pb-3">
+          <div class="text-[10px] uppercase tracking-wider text-[#8B949E]">Process Identity</div>
+          <div class="text-[14px] font-semibold text-[#E6EDF3]">${esc(conn.process_name)}</div>
+          <div class="mono-num grid grid-cols-2 gap-2 text-[11px] text-[#8B949E]">
+            <div>PID: <span class="text-[#E6EDF3]">${esc(conn.pid)}</span></div>
+            <div>Parent: <span class="text-[#E6EDF3]">${esc(conn.parent_name || 'unknown')}</span></div>
+            <div>State: <span class="text-[#E6EDF3]">${esc(conn.status)}</span></div>
+            <div>Posture: <span class="uppercase text-[#E6EDF3]">${esc(conn.risk)}</span></div>
+          </div>
+        </div>
+
+        <div class="space-y-1.5 border-b border-[#1F242D] pb-3">
+          <div class="text-[10px] uppercase tracking-wider text-[#8B949E]">Socket Endpoint</div>
+          <div class="mono-num rounded border border-[#1F242D] bg-[#0A0D12] p-2.5 text-[11px] text-[#E6EDF3]">
+            ${esc(conn.local_ip || 'local')}:${esc(conn.local_port)} &rarr; ${esc(conn.remote_ip)}:${esc(conn.remote_port)}
+            ${conn.cloud_provider ? `<div class="mt-1 text-[10px] text-[#10B981]">Verified Cloud: ${esc(conn.cloud_provider)}</div>` : ''}
+          </div>
+        </div>
+
+        <div class="space-y-1.5 border-b border-[#1F242D] pb-3">
+          <div class="text-[10px] uppercase tracking-wider text-[#8B949E]">Full Command Line</div>
+          <pre class="mono-num whitespace-pre-wrap break-all rounded border border-[#1F242D] bg-[#0A0D12] p-2.5 text-[11px] text-[#E6EDF3]">${esc(conn.cmdline || conn.process_name)}</pre>
+        </div>
+
+        ${matchingInc ? `
+        <div class="space-y-1.5 border-b border-[#1F242D] pb-3">
+          <div class="text-[10px] uppercase tracking-wider text-[#8B949E]">Gemini Triage (#${esc(matchingInc.id)} · ${esc(matchingInc.status)})</div>
+          <div class="text-[11.5px] leading-relaxed text-[#E6EDF3]">${esc(matchingInc.ai_summary || 'Triage in progress...')}</div>
+          <div class="mono-num mt-1 text-[10px] text-[#59636E] break-all">${esc(matchingInc.trigger_reason || '')}</div>
+        </div>` : ''}
+
+        <div class="flex flex-wrap gap-2 pt-1">
+          <button onclick="quickTrustIp('${esc(conn.remote_ip)}', '${esc(conn.process_name)}')" class="rounded border border-[#10B981]/50 bg-[#10B981]/10 px-3 py-1.5 text-[11px] font-medium text-[#10B981] hover:bg-[#10B981]/20">Whitelist IP</button>
+          ${conn.pid > 4 ? `<button onclick="manualKillPid(${Number(conn.pid)}, '${esc(conn.process_name)}')" class="rounded border border-[#1F242D] bg-[#0A0D12] px-3 py-1.5 text-[11px] text-[#E6EDF3] hover:border-[#EF4444]/60 hover:text-[#EF4444]">Terminate PID</button>` : ''}
+          <button onclick="manualBlockIp('${esc(conn.remote_ip)}', '${esc(conn.process_name)}')" class="rounded bg-[#EF4444] px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-[#dc2626]">Block /32</button>
+        </div>
+      `;
+    };
+
+    window.openIncidentInspector = (id) => {
+      const inc = appState.incidents.find(i => i.id === id);
+      if (!inc) return;
+      const drawer = document.getElementById('inspectorDrawer');
+      const body = document.getElementById('inspectorBody');
+      drawer.classList.remove('hidden');
+      drawer.classList.add('flex');
+
+      body.innerHTML = `
+        <div class="space-y-1.5 border-b border-[#1F242D] pb-3">
+          <div class="mono-num text-[10px] text-[#8B949E]">INCIDENT #${esc(inc.id)} · ${esc(inc.timestamp)}</div>
+          <div class="text-[14px] font-semibold text-[#E6EDF3]">${esc(inc.process_name)} <span class="mono-num text-[12px] text-[#8B949E]">(PID ${esc(inc.pid)})</span></div>
+          <div class="mono-num text-[11.5px] text-[#E6EDF3]">${esc(inc.remote_ip)}:${esc(inc.remote_port)} · <span class="${inc.status === 'BLOCKED' ? 'text-[#EF4444]' : 'text-[#10B981]'}">${esc(inc.status)}</span></div>
+        </div>
+
+        <div class="space-y-1.5 border-b border-[#1F242D] pb-3">
+          <div class="text-[10px] uppercase tracking-wider text-[#8B949E]">Gemini Forensic Verdict</div>
+          <div class="text-[12px] leading-relaxed text-[#E6EDF3]">${esc(inc.ai_summary || 'Evaluating...')}</div>
+        </div>
+
+        <div class="space-y-1.5 border-b border-[#1F242D] pb-3">
+          <div class="text-[10px] uppercase tracking-wider text-[#8B949E]">Sensor Classification &amp; Command Line</div>
+          <pre class="mono-num whitespace-pre-wrap break-all rounded border border-[#1F242D] bg-[#0A0D12] p-2.5 text-[10.5px] text-[#8B949E]">${esc(inc.trigger_reason || '')}</pre>
+        </div>
+
+        <div class="mono-num space-y-1 border-b border-[#1F242D] pb-3 text-[11px] text-[#8B949E]">
+          <div>Gmail Alert: <span class="text-[#E6EDF3]">${inc.gmail_sent ? 'Delivered (' + esc(inc.gmail_message_id || 'ok') + ')' : 'Not sent'}</span></div>
+          <div>Ntfy Push: <span class="text-[#E6EDF3]">${inc.ntfy_sent ? 'Delivered' : 'Not sent'}</span></div>
+          <div>Process Killed: <span class="text-[#E6EDF3]">${inc.process_killed ? 'Yes' : 'No'}</span></div>
+          <div>Firewall /32 Block: <span class="text-[#E6EDF3]">${inc.ip_blocked ? 'Active' : 'Inactive'}</span></div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 pt-1">
+          ${inc.ip_blocked ? `<button onclick="unblockIp('${esc(inc.remote_ip)}')" class="rounded border border-[#10B981]/50 bg-[#10B981]/10 px-3 py-1.5 text-[11px] font-medium text-[#10B981]">Unblock ${esc(inc.remote_ip)}</button>` : ''}
+          <button onclick="quickTrustIp('${esc(inc.remote_ip)}', '${esc(inc.process_name)}')" class="rounded border border-[#1F242D] bg-[#0A0D12] px-3 py-1.5 text-[11px] text-[#E6EDF3] hover:border-[#10B981]/50">Whitelist Peer</button>
+        </div>
+      `;
+    };
+
+    document.getElementById('closeInspectorBtn').addEventListener('click', () => {
+      appState.selectedKey = null;
+      const drawer = document.getElementById('inspectorDrawer');
+      drawer.classList.add('hidden');
+      drawer.classList.remove('flex');
+      renderConnectionsTable();
+    });
+
     function renderAll() {
       renderAuthGate();
-      renderHeaderAndKpis();
-      renderUserProfile();
-      renderTelemetry();
-      renderActiveThreatBanner();
+      renderHeaderAndMetrics();
+      renderOperatorCard();
+      renderConfirmedThreatBar();
       renderConnectionsTable();
-      renderActivityFeed();
-      renderIncidents();
-      renderFirewallAndWhitelist();
+      renderActivityTape();
+      renderIncidentsTable();
+      renderFirewallLists();
       renderSettingsForm();
     }
 
     // =========================================================================
-    // OPERATOR ACTIONS
+    // OPERATOR API ACTIONS
     // =========================================================================
     window.manualKillPid = async (pid, procName) => {
       try {
         const res = await apiJson('/api/process/kill', { method: 'POST', body: JSON.stringify({ pid }) });
-        showToast(res.detail || `Terminated ${procName} (PID ${pid})`, res.killed ? 'success' : 'warn');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(res.detail || `Terminated ${procName} (PID ${pid})`, res.killed ? 'emerald' : 'warn');
+      } catch (err) { notify(err.message, 'danger'); }
     };
 
     window.manualBlockIp = async (ip, procName) => {
       try {
         const res = await apiJson('/api/firewall/block', {
           method: 'POST',
-          body: JSON.stringify({ ip, reason: `Manual block (${procName || 'console'})` })
+          body: JSON.stringify({ ip, reason: `Operator block (${procName || 'console'})` })
         });
-        showToast(res.detail || `Blocked ${ip}`, 'success');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(res.detail || `Blocked ${ip}/32`, 'emerald');
+      } catch (err) { notify(err.message, 'danger'); }
     };
 
     window.quickTrustIp = async (ip, procName) => {
       try {
         await apiJson('/api/whitelist', {
           method: 'POST',
-          body: JSON.stringify({ ip, label: `Trusted (${procName || 'console'})` })
+          body: JSON.stringify({ ip, label: `Trusted (${procName || 'operator'})` })
         });
-        showToast(`Added ${ip} to Trusted Whitelist.`, 'success');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(`Whitelisted ${ip}`, 'emerald');
+      } catch (err) { notify(err.message, 'danger'); }
     };
 
     window.unblockIp = async (ip) => {
       try {
         const res = await apiJson('/api/firewall/unblock', { method: 'POST', body: JSON.stringify({ ip }) });
-        showToast(res.detail || `Unblocked ${ip}`, 'info');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(res.detail || `Unblocked ${ip}`, 'neutral');
+      } catch (err) { notify(err.message, 'danger'); }
     };
 
     window.removeWhitelistIp = async (ip) => {
       try {
         await apiJson(`/api/whitelist/${encodeURIComponent(ip)}`, { method: 'DELETE' });
-        showToast(`Removed ${ip} from Trusted Whitelist.`, 'info');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(`Removed ${ip} from whitelist`, 'neutral');
+      } catch (err) { notify(err.message, 'danger'); }
     };
 
     async function doLogout() {
@@ -1164,52 +1163,68 @@
         await apiJson('/auth/logout', { method: 'POST' });
         appState.user = null;
         renderAll();
-        showToast('Signed out of Google account.', 'info');
-      } catch (err) { showToast(err.message, 'danger'); }
+      } catch (err) { notify(err.message, 'danger'); }
     }
 
     // =========================================================================
-    // EVENT LISTENERS
+    // CONTROLS, CTRL+K COMMAND BAR & COPILOT
     // =========================================================================
-    const TAB_TITLES = {
-      monitor: 'Live Endpoint Monitor',
-      incidents: 'Threats & Forensics',
-      firewall: 'Firewall & Trusted Whitelist',
-      copilot: 'Gemini AI Security Copilot',
-      settings: 'Account & Protection Policy'
-    };
-
-    document.querySelectorAll('.nav-item').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const tab = btn.getAttribute('data-tab');
-        appState.activeTab = tab;
-        document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-        document.getElementById(`tab-${tab}`).classList.remove('hidden');
-        document.getElementById('viewTitle').textContent = TAB_TITLES[tab] || 'CyberShield Mesh';
-      });
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.getAttribute('data-tab')));
     });
 
-    document.querySelectorAll('.filter-pill').forEach(btn => {
+    document.querySelectorAll('.seg-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        appState.riskFilter = btn.getAttribute('data-risk');
-        document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+        appState.connSegment = btn.getAttribute('data-filter');
+        document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         renderConnectionsTable();
       });
     });
 
-    document.getElementById('soundToggleBtn').addEventListener('click', () => {
-      appState.soundOn = !appState.soundOn;
-      document.getElementById('soundIcon').className = appState.soundOn
-        ? 'fa-solid fa-volume-high text-xs'
-        : 'fa-solid fa-volume-xmark text-xs text-slate-500';
+    document.getElementById('showBenignClearedToggle').addEventListener('change', renderIncidentsTable);
+
+    // Ctrl+K shortcut focuses command bar
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        document.getElementById('globalCommandInput').focus();
+      }
     });
 
-    document.getElementById('dismissBannerBtn').addEventListener('click', () => {
-      if (appState.incidents[0]) appState.dismissedBannerIncidentId = appState.incidents[0].id;
-      document.getElementById('activeThreatBanner').classList.add('hidden');
+    const globalCmd = document.getElementById('globalCommandInput');
+    globalCmd.addEventListener('input', () => {
+      appState.searchQuery = globalCmd.value.trim();
+      renderConnectionsTable();
+      renderIncidentsTable();
+    });
+
+    document.getElementById('commandBarForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const raw = globalCmd.value.trim();
+      if (!raw) return;
+      if (/^(unblock|block|whitelist|trust|kill|show|why|audit|summarize)\b/i.test(raw)) {
+        globalCmd.value = '';
+        appState.searchQuery = '';
+        renderConnectionsTable();
+        switchTab('copilot');
+        await sendCopilotMessage(raw);
+      }
+    });
+
+    document.getElementById('elevateAdminBtn').addEventListener('click', async () => {
+      try {
+        const res = await apiJson('/api/system/elevate', { method: 'POST' });
+        notify(res.detail || 'Approve the Windows UAC prompt to relaunch in Admin Firewall Mode.', 'warn');
+      } catch (err) {
+        notify(err.message, 'danger');
+      }
+    });
+
+    document.getElementById('dismissThreatBarBtn').addEventListener('click', () => {
+      const confirmed = appState.incidents.find(i => i.status === 'BLOCKED');
+      if (confirmed) appState.dismissedThreatId = confirmed.id;
+      document.getElementById('confirmedThreatBar').classList.add('hidden');
     });
 
     document.getElementById('googleLoginBtn').addEventListener('click', async () => {
@@ -1217,9 +1232,9 @@
         const data = await apiJson('/auth/google/login');
         if (data.auth_url) {
           window.open(data.auth_url, '_blank', 'noopener');
-          showToast('Finish signing in with Google in your browser — CyberShield unlocks automatically.', 'info');
+          notify('Complete Google OAuth in your browser — console unlocks automatically.', 'neutral');
         }
-      } catch (err) { showToast(err.message, 'danger'); }
+      } catch (err) { notify(err.message, 'danger'); }
     });
 
     document.getElementById('toggleOAuthGearBtn').addEventListener('click', () => {
@@ -1234,8 +1249,8 @@
         await apiJson('/auth/config', { method: 'POST', body: JSON.stringify({ client_id, client_secret }) });
         appState.oauthConfigured = true;
         renderAuthGate();
-        showToast('Google OAuth configured! Click "Continue with Google".', 'success');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify('Saved OAuth credentials.', 'emerald');
+      } catch (err) { notify(err.message, 'danger'); }
     });
 
     document.getElementById('sidebarLogoutBtn').addEventListener('click', doLogout);
@@ -1244,20 +1259,17 @@
     document.getElementById('quickAutonomousToggle').addEventListener('change', async (e) => {
       try {
         await apiJson('/api/settings', { method: 'PUT', body: JSON.stringify({ autonomous_mode: e.target.checked }) });
-        showToast(e.target.checked ? 'Autonomous AI Containment ARMED.' : 'Switched to Monitor-Only mode.', 'info');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(e.target.checked ? '80ms Auto-Containment armed.' : 'Switched to Monitor-Only mode.', 'neutral');
+      } catch (err) { notify(err.message, 'danger'); }
     });
-
-    document.getElementById('connFilterInput').addEventListener('input', renderConnectionsTable);
-    document.getElementById('incFilterInput').addEventListener('input', renderIncidents);
 
     document.getElementById('refreshConnBtn').addEventListener('click', async () => {
       try {
         const data = await apiJson('/api/connections');
         appState.activeConnections = data.connections || [];
-        renderHeaderAndKpis();
+        renderHeaderAndMetrics();
         renderConnectionsTable();
-      } catch (err) { showToast(err.message, 'danger'); }
+      } catch (err) { notify(err.message, 'danger'); }
     });
 
     document.getElementById('manualBlockForm').addEventListener('submit', async (e) => {
@@ -1271,8 +1283,8 @@
     document.getElementById('resetFirewallBtn').addEventListener('click', async () => {
       try {
         const res = await apiJson('/api/firewall/reset', { method: 'POST' });
-        showToast(`Cleared ${(res.cleared_ips || []).length} firewall rule(s).`, 'info');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(`Flushed ${(res.cleared_ips || []).length} /32 firewall rule(s).`, 'neutral');
+      } catch (err) { notify(err.message, 'danger'); }
     });
 
     document.getElementById('whitelistForm').addEventListener('submit', async (e) => {
@@ -1286,8 +1298,8 @@
         });
         ipEl.value = '';
         lblEl.value = '';
-        showToast('Added IP to Trusted Whitelist.', 'success');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify('Added IP to Trusted Whitelist.', 'emerald');
+      } catch (err) { notify(err.message, 'danger'); }
     });
 
     document.getElementById('settingsForm').addEventListener('submit', async (e) => {
@@ -1308,8 +1320,8 @@
             suspicious_processes: procs
           })
         });
-        showToast('Protection policy updated.', 'success');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify('Sensor policy saved.', 'emerald');
+      } catch (err) { notify(err.message, 'danger'); }
     });
 
     document.getElementById('testAlertBtn').addEventListener('click', async () => {
@@ -1322,30 +1334,30 @@
         const g = res.gmail || {};
         const n = res.ntfy || {};
         box.innerHTML = `
-          <div><strong>Gmail API:</strong> ${g.sent ? `<span class="text-emerald-300">DELIVERED to ${esc(g.to)} (id=${esc(g.message_id)})</span>` : `<span class="text-rose-300">FAILED (${esc(g.error || 'disabled')})</span>`}</div>
-          <div class="mt-1"><strong>ntfy Push:</strong> ${n.sent ? `<span class="text-cyan-300">DELIVERED to topic ${esc(n.topic)}</span>` : `<span class="text-slate-400">${esc(n.skipped ? 'Disabled' : (n.error || 'Failed'))}</span>`}</div>
+          <div>Gmail: ${g.sent ? `<span class="text-[#10B981]">SENT to ${esc(g.to)} (${esc(g.message_id)})</span>` : `<span class="text-[#EF4444]">FAILED (${esc(g.error || 'disabled')})</span>`}</div>
+          <div class="mt-1">Ntfy: ${n.sent ? `<span class="text-[#10B981]">SENT (${esc(n.topic)})</span>` : `<span>${esc(n.skipped ? 'Disabled' : (n.error || 'Failed'))}</span>`}</div>
         `;
-        showToast(res.any_delivered ? 'Test security alert delivered!' : 'Delivery failed — see receipt.', res.any_delivered ? 'success' : 'warn');
-      } catch (err) { showToast(err.message, 'danger'); }
+        notify(res.any_delivered ? 'Test alert delivered.' : 'Alert delivery failed.', res.any_delivered ? 'emerald' : 'warn');
+      } catch (err) { notify(err.message, 'danger'); }
       finally { btn.disabled = false; }
     });
 
-    // Copilot Chat
+    // Copilot
     const copilotMessages = document.getElementById('copilotMessages');
     const copilotInput = document.getElementById('copilotInput');
     const copilotSendBtn = document.getElementById('copilotSendBtn');
 
-    function appendCopilot(role, text, actions = []) {
+    function appendCopilotMsg(role, text, actions = []) {
       const el = document.createElement('div');
       if (role === 'user') {
-        el.className = 'ml-auto max-w-xl rounded-2xl border border-cyan-500/35 bg-cyan-500/15 px-4 py-2.5 text-xs text-cyan-100';
+        el.className = 'ml-auto max-w-xl rounded border border-[#2B3240] bg-[#161B26] px-3.5 py-2 text-[12px] text-[#E6EDF3]';
         el.textContent = text;
       } else {
-        el.className = 'max-w-2xl rounded-2xl border border-slate-800 bg-slate-900/90 px-4 py-3 text-xs leading-relaxed text-slate-200';
+        el.className = 'max-w-2xl rounded border border-[#1F242D] bg-[#10141C] px-3.5 py-2.5 text-[12px] leading-relaxed text-[#E6EDF3]';
         const chips = (actions && actions.length)
-          ? `<div class="mt-2.5 flex flex-wrap gap-1.5">${actions.map(a => `<span class="rounded-md bg-emerald-500/15 border border-emerald-500/35 px-2 py-0.5 font-mono text-[10px] text-emerald-300"><i class="fa-solid fa-wrench mr-1"></i>${esc(a.tool)}(${esc(a.target || '')})</span>`).join('')}</div>`
+          ? `<div class="mt-2 flex flex-wrap gap-1.5">${actions.map(a => `<span class="mono-num rounded border border-[#10B981]/40 bg-[#10B981]/10 px-2 py-0.5 text-[10.5px] text-[#10B981]">${esc(a.tool)}(${esc(a.target || '')})</span>`).join('')}</div>`
           : '';
-        el.innerHTML = `<div>${formatInlineMarkdown(text)}</div>${chips}`;
+        el.innerHTML = `<div>${fmtMd(text)}</div>${chips}`;
       }
       copilotMessages.appendChild(el);
       copilotMessages.scrollTop = copilotMessages.scrollHeight;
@@ -1357,17 +1369,17 @@
       copilotInput.value = '';
       copilotInput.disabled = true;
       copilotSendBtn.disabled = true;
-      appendCopilot('user', message);
-      const thinking = appendCopilot('ai', 'Analyzing live endpoint telemetry with Gemini...');
-      thinking.classList.add('italic', 'text-slate-400');
+      appendCopilotMsg('user', message);
+      const pending = appendCopilotMsg('ai', 'Executing query against live sensor state...');
+      pending.classList.add('text-[#8B949E]');
 
       try {
         const res = await apiJson('/api/chat', { method: 'POST', body: JSON.stringify({ message }) });
-        thinking.remove();
-        appendCopilot('ai', res.reply || 'Done.', res.actions || []);
+        pending.remove();
+        appendCopilotMsg('ai', res.reply || 'Completed.', res.actions || []);
       } catch (err) {
-        thinking.remove();
-        appendCopilot('ai', `Error: ${err.message}`);
+        pending.remove();
+        appendCopilotMsg('ai', `Error: ${err.message}`);
       } finally {
         copilotInput.disabled = false;
         copilotSendBtn.disabled = false;
@@ -1389,22 +1401,13 @@
     let ws = null;
     let reconnectTimer = null;
 
-    function setWsStatus(connected) {
-      const pill = document.getElementById('wsStatusPill');
-      const dot = document.getElementById('wsDot');
-      const text = document.getElementById('wsText');
-      if (connected) {
-        pill.className = 'inline-flex items-center gap-1 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 font-mono text-[9px] text-emerald-300';
-        dot.className = 'h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse';
-        text.textContent = 'LIVE';
-      } else {
-        pill.className = 'inline-flex items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 font-mono text-[9px] text-amber-300';
-        dot.className = 'h-1.5 w-1.5 rounded-full bg-amber-400';
-        text.textContent = 'SYNC';
-      }
+    function setWsDot(ok) {
+      document.getElementById('wsDot').className = ok
+        ? 'h-2 w-2 rounded-full bg-[#10B981]'
+        : 'h-2 w-2 rounded-full bg-[#F59E0B] animate-pulse';
     }
 
-    function applyServerMessage(msg) {
+    function applyServerEvent(msg) {
       if (!msg || msg.type === 'pong') return;
 
       if (msg.type === 'snapshot') {
@@ -1417,6 +1420,7 @@
         appState.isAdmin = !!msg.is_admin;
         appState.geminiModel = msg.gemini_model || 'gemini-3.5-flash-lite';
         appState.activeConnections = msg.active_connections || [];
+        appState.suspendedPids = msg.suspended_pids || [];
         appState.telemetry = msg.telemetry || appState.telemetry;
         appState.incidents = msg.incidents || [];
         appState.totalIncidents = msg.total_incidents || 0;
@@ -1429,63 +1433,61 @@
       }
 
       if (msg.protection_status) appState.protectionStatus = msg.protection_status;
+      if (Array.isArray(msg.suspended_pids)) appState.suspendedPids = msg.suspended_pids;
 
       if (msg.type === 'auth_updated') {
         const wasOut = !appState.user;
         appState.user = msg.user || null;
         appState.oauthConfigured = !!msg.oauth_configured;
         renderAll();
-        if (wasOut && appState.user) {
-          showToast(`Welcome, ${appState.user.name || appState.user.email}. Gmail alerts active.`, 'success');
-        }
+        if (wasOut && appState.user) notify(`Authenticated as ${appState.user.email}`, 'emerald');
       } else if (msg.type === 'connections_update') {
         appState.activeConnections = msg.active_connections || [];
         if (msg.telemetry) appState.telemetry = msg.telemetry;
-        renderHeaderAndKpis();
-        renderTelemetry();
+        renderHeaderAndMetrics();
         renderConnectionsTable();
       } else if (msg.type === 'incident_updated') {
         appState.incidents = msg.incidents || appState.incidents;
-        appState.totalIncidents = msg.total_incidents ?? appState.incidents.length;
-        renderHeaderAndKpis();
-        renderActiveThreatBanner();
-        renderIncidents();
+        appState.totalIncidents = msg.total_incidents ?? appState.totalIncidents;
+        renderHeaderAndMetrics();
+        renderConfirmedThreatBar();
+        renderIncidentsTable();
       } else if (msg.type === 'firewall_updated') {
         appState.blockedIps = msg.blocked_ips || [];
         appState.whitelistIps = msg.whitelist_ips || [];
-        renderHeaderAndKpis();
-        renderFirewallAndWhitelist();
+        renderHeaderAndMetrics();
+        renderFirewallLists();
       } else if (msg.type === 'settings_updated') {
         appState.settings = msg.settings || {};
-        renderHeaderAndKpis();
-        renderUserProfile();
+        renderHeaderAndMetrics();
+        renderOperatorCard();
         renderSettingsForm();
       } else if (msg.type === 'activity' && msg.entry) {
         appState.activityFeed.unshift(msg.entry);
-        appState.activityFeed = appState.activityFeed.slice(0, 30);
-        renderHeaderAndKpis();
-        renderActivityFeed();
+        appState.activityFeed = appState.activityFeed.slice(0, 40);
+        renderHeaderAndMetrics();
+        renderActivityTape();
+        // STRICT DISCIPLINE: Only show danger toast on confirmed post-verdict BLOCKED events
         if (msg.entry.level === 'danger') {
-          playAlertChime();
-          showToast(msg.entry.message, 'danger');
+          notify(msg.entry.message, 'danger');
         }
       }
     }
 
-    function connectWebSocket() {
+    function connectWs() {
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
       const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host || '127.0.0.1:8000';
       try {
         ws = new WebSocket(`${proto}//${host}/ws`);
       } catch (_) {
-        setWsStatus(false);
-        reconnectTimer = setTimeout(connectWebSocket, 1500);
+        setWsDot(false);
+        reconnectTimer = setTimeout(connectWs, 1500);
         return;
       }
-      ws.onopen = () => setWsStatus(true);
-      ws.onmessage = (e) => { try { applyServerMessage(JSON.parse(e.data)); } catch (_) {} };
-      ws.onclose = () => { setWsStatus(false); reconnectTimer = setTimeout(connectWebSocket, 1500); };
+      ws.onopen = () => setWsDot(true);
+      ws.onmessage = (e) => { try { applyServerEvent(JSON.parse(e.data)); } catch (_) {} };
+      ws.onclose = () => { setWsDot(false); reconnectTimer = setTimeout(connectWs, 1500); };
       ws.onerror = () => { try { ws.close(); } catch (_) {} };
     }
 
@@ -1495,7 +1497,7 @@
       }
     }, 25000);
 
-    window.addEventListener('DOMContentLoaded', () => connectWebSocket());
+    window.addEventListener('DOMContentLoaded', connectWs);
   </script>
 </body>
 </html>

@@ -1,8 +1,4 @@
-"""Live runtime state and thread-safe WebSocket ConnectionManager.
-
-Combines durable SQLite state (`backend/db.py`) with live OS socket telemetry,
-cooldown caches, and real-time broadcasts to all connected console clients.
-"""
+"""Live runtime state, session learning cache, suspended-PID tracker, and WebSocket hub."""
 
 from __future__ import annotations
 
@@ -26,7 +22,7 @@ from backend.db import db, utc_now_iso
 logger = logging.getLogger("cybershield.state")
 
 
-def _detect_is_admin() -> bool:
+def detect_is_admin() -> bool:
     if platform.system().lower() == "windows":
         try:
             return bool(ctypes.windll.shell32.IsUserAnAdmin())
@@ -52,14 +48,42 @@ class RuntimeState:
             "history": [],
         }
         self._handled_pairs: dict[tuple[int, str], float] = {}
+        self._verified_benign_pairs: set[tuple[str, str]] = set()
+        self._suspended_pids: set[int] = set()
         self._activity_feed: list[dict[str, Any]] = [
             {
                 "timestamp": utc_now_iso(),
                 "level": "info",
-                "message": "CyberShield Mesh endpoint sensor initialized.",
+                "message": "CyberShield Mesh 80ms behavioral sensor initialized.",
             }
         ]
         self._active_incident_id: Optional[int] = None
+
+        # Short-lived in-memory policy cache so 80ms scanner avoids hitting SQLite every tick
+        self._policy_cache_ts: float = 0.0
+        self._policy_cache: Optional[tuple[dict[str, Any], set[str], set[str]]] = None
+
+    def is_admin(self) -> bool:
+        return detect_is_admin()
+
+    def invalidate_policy_cache(self) -> None:
+        with self._lock:
+            self._policy_cache = None
+            self._policy_cache_ts = 0.0
+
+    def get_fast_policy_snapshot(self) -> tuple[dict[str, Any], set[str], set[str]]:
+        """Return (settings_dict, blocked_ip_set, whitelist_ip_set) cached for 1.0s."""
+        now = time.monotonic()
+        with self._lock:
+            if self._policy_cache is not None and (now - self._policy_cache_ts) < 1.0:
+                return self._policy_cache
+        cfg = db.get_settings()
+        blocked_set = {r["ip"] for r in db.list_blocked_ips()}
+        whitelist_set = {r["ip"] for r in db.list_whitelist_ips()}
+        with self._lock:
+            self._policy_cache = (cfg, blocked_set, whitelist_set)
+            self._policy_cache_ts = now
+            return self._policy_cache
 
     def set_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         with self._lock:
@@ -75,9 +99,9 @@ class RuntimeState:
 
     def get_protection_status(self) -> str:
         with self._lock:
-            cfg = db.get_settings()
-            if self._protection_status == "CONTAINING":
+            if self._protection_status == "CONTAINING" or self._suspended_pids:
                 return "CONTAINING"
+            cfg, _, _ = self.get_fast_policy_snapshot()
             return "ARMED" if cfg.get("autonomous_mode", True) else "MONITOR_ONLY"
 
     def set_active_incident_id(self, incident_id: Optional[int]) -> None:
@@ -87,6 +111,35 @@ class RuntimeState:
     def get_active_incident_id(self) -> Optional[int]:
         with self._lock:
             return self._active_incident_id
+
+    def mark_pid_suspended(self, pid: int) -> None:
+        with self._lock:
+            if pid > 0:
+                self._suspended_pids.add(int(pid))
+
+    def clear_pid_suspended(self, pid: int) -> None:
+        with self._lock:
+            self._suspended_pids.discard(int(pid))
+
+    def get_suspended_pids(self) -> set[int]:
+        with self._lock:
+            return set(self._suspended_pids)
+
+    def add_verified_benign(self, process_name: str, remote_ip: str) -> None:
+        with self._lock:
+            self._verified_benign_pairs.add((process_name.strip().lower(), remote_ip.strip()))
+
+    def is_verified_benign(self, process_name: str, remote_ip: str) -> bool:
+        with self._lock:
+            return (process_name.strip().lower(), remote_ip.strip()) in self._verified_benign_pairs
+
+    def get_verified_benign_pairs(self) -> set[tuple[str, str]]:
+        with self._lock:
+            return set(self._verified_benign_pairs)
+
+    def clear_verified_benign(self) -> None:
+        with self._lock:
+            self._verified_benign_pairs.clear()
 
     def set_active_connections(self, connections: list[dict[str, Any]]) -> None:
         with self._lock:
@@ -105,8 +158,8 @@ class RuntimeState:
         with self._lock:
             history: list[dict[str, Any]] = self._telemetry.setdefault("history", [])
             history.append(point)
-            if len(history) > 36:
-                del history[:-36]
+            if len(history) > 40:
+                del history[:-40]
             self._telemetry["tx_kbps"] = point["tx"]
             self._telemetry["rx_kbps"] = point["rx"]
             self._telemetry["cpu_percent"] = round(cpu_percent, 1)
@@ -144,11 +197,20 @@ class RuntimeState:
         }
         with self._lock:
             self._activity_feed.insert(0, entry)
-            self._activity_feed = self._activity_feed[:30]
+            self._activity_feed = self._activity_feed[:40]
         return entry
+
+    def count_neutralized_threats(self, incidents: Optional[list[dict[str, Any]]] = None) -> int:
+        rows = incidents if incidents is not None else db.list_incidents(limit=200)
+        return sum(
+            1
+            for inc in rows
+            if inc.get("status") not in {"BENIGN_CLEARED", "ANALYZING"}
+        )
 
     def get_full_snapshot(self) -> dict[str, Any]:
         with self._lock:
+            incidents = db.list_incidents(limit=50)
             return {
                 "protection_status": self.get_protection_status(),
                 "user": get_current_user(),
@@ -158,15 +220,16 @@ class RuntimeState:
                 "gemini_model": settings.gemini_model,
                 "hostname": socket.gethostname(),
                 "os_name": f"{platform.system()} {platform.release()}",
-                "is_admin": _detect_is_admin(),
+                "is_admin": detect_is_admin(),
                 "active_connections": copy.deepcopy(self._active_connections),
+                "suspended_pids": sorted(self._suspended_pids),
                 "telemetry": copy.deepcopy(self._telemetry),
-                "incidents": db.list_incidents(limit=30),
-                "total_incidents": db.count_incidents(),
+                "incidents": incidents,
+                "total_incidents": self.count_neutralized_threats(incidents),
                 "blocked_ips": db.list_blocked_ips(),
                 "whitelist_ips": db.list_whitelist_ips(),
                 "settings": db.get_settings(),
-                "activity_feed": copy.deepcopy(self._activity_feed[:15]),
+                "activity_feed": copy.deepcopy(self._activity_feed[:25]),
                 "timestamp": utc_now_iso(),
             }
 
@@ -208,7 +271,6 @@ class ConnectionManager:
             self.disconnect(ws)
 
     def broadcast(self, payload: dict[str, Any]) -> None:
-        """Broadcast safely from either the asyncio loop or a worker thread."""
         loop = self._runtime.get_event_loop()
         if loop is None or loop.is_closed():
             return
@@ -231,6 +293,7 @@ class ConnectionManager:
             "type": "activity",
             "entry": entry,
             "protection_status": self._runtime.get_protection_status(),
+            "suspended_pids": sorted(self._runtime.get_suspended_pids()),
             "timestamp": utc_now_iso(),
         }
         if extra:
@@ -243,6 +306,7 @@ class ConnectionManager:
             {
                 "type": "connections_update",
                 "active_connections": connections,
+                "suspended_pids": sorted(self._runtime.get_suspended_pids()),
                 "telemetry": telemetry if telemetry is not None else self._runtime.get_telemetry(),
                 "protection_status": self._runtime.get_protection_status(),
                 "timestamp": utc_now_iso(),
@@ -250,18 +314,21 @@ class ConnectionManager:
         )
 
     def emit_incident_update(self, incident: Optional[dict[str, Any]] = None) -> None:
+        incidents = db.list_incidents(limit=50)
         self.broadcast(
             {
                 "type": "incident_updated",
                 "incident": incident,
-                "incidents": db.list_incidents(limit=30),
-                "total_incidents": db.count_incidents(),
+                "incidents": incidents,
+                "total_incidents": self._runtime.count_neutralized_threats(incidents),
+                "suspended_pids": sorted(self._runtime.get_suspended_pids()),
                 "protection_status": self._runtime.get_protection_status(),
                 "timestamp": utc_now_iso(),
             }
         )
 
     def emit_firewall_update(self) -> None:
+        self._runtime.invalidate_policy_cache()
         self.broadcast(
             {
                 "type": "firewall_updated",
@@ -273,6 +340,7 @@ class ConnectionManager:
         )
 
     def emit_settings_update(self) -> None:
+        self._runtime.invalidate_policy_cache()
         self.broadcast(
             {
                 "type": "settings_updated",

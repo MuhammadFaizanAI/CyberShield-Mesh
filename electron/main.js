@@ -11,13 +11,94 @@ const BACKEND_HOST = '127.0.0.1';
 const BACKEND_PORT = 8000;
 const HEALTH_URL = `http://${BACKEND_HOST}:${BACKEND_PORT}/health`;
 const APP_URL = `http://${BACKEND_HOST}:${BACKEND_PORT}/`;
-const HEALTH_POLL_INTERVAL_MS = 300;
-const HEALTH_TIMEOUT_MS = 15000;
+const HEALTH_POLL_INTERVAL_MS = 250;
+const HEALTH_TIMEOUT_MS = 18000;
 
 let mainWindow = null;
 let tray = null;
 let backendProcess = null;
 let isQuitting = false;
+
+// ============================================================================
+// WINDOWS ADMINISTRATOR PRIVILEGE DETECTION & AUTO-UAC ELEVATION
+// ============================================================================
+function isWindowsAdmin() {
+  if (process.platform !== 'win32') return true;
+  try {
+    execFileSync('net', ['session'], { stdio: 'ignore', windowsHide: true });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function tryElevateOnWindows() {
+  if (process.platform !== 'win32') return false;
+  if (isWindowsAdmin()) return false;
+  if (
+    process.argv.includes('--no-elevate') ||
+    process.argv.includes('--elevated') ||
+    process.env.CYBERSHIELD_NO_ELEVATE === '1'
+  ) {
+    return false;
+  }
+
+  try {
+    const projectRoot = path.resolve(__dirname, '..');
+    const launcherBat = path.join(projectRoot, 'LAUNCH_CYBERSHIELD_ADMIN.bat');
+
+    if (app.isPackaged) {
+      const exe = process.execPath.replace(/'/g, "''");
+      execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          `Start-Process -FilePath '${exe}' -ArgumentList '--elevated' -Verb RunAs`
+        ],
+        { stdio: 'ignore', windowsHide: true }
+      );
+      return true;
+    }
+
+    if (fs.existsSync(launcherBat)) {
+      const bat = launcherBat.replace(/'/g, "''");
+      const wd = projectRoot.replace(/'/g, "''");
+      execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          `Start-Process -FilePath '${bat}' -WorkingDirectory '${wd}' -Verb RunAs`
+        ],
+        { stdio: 'ignore', windowsHide: true }
+      );
+      return true;
+    }
+
+    const exe = process.execPath.replace(/'/g, "''");
+    const appDir = path.resolve(__dirname).replace(/'/g, "''");
+    execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-WindowStyle',
+        'Hidden',
+        '-Command',
+        `Start-Process -FilePath '${exe}' -ArgumentList '"${appDir}" --elevated' -Verb RunAs`
+      ],
+      { stdio: 'ignore', windowsHide: true }
+    );
+    return true;
+  } catch (err) {
+    console.warn('[electron] UAC elevation declined or unavailable; continuing in Standard User Mode:', err.message);
+    return false;
+  }
+}
 
 // ============================================================================
 // INLINE SHIELD PNG ICON GENERATOR (ZERO EXTERNAL .ICO DEPENDENCY)
@@ -48,30 +129,28 @@ function createShieldTrayDataUrl(size = 32) {
 
   for (let y = 0; y < size; y++) {
     const rowStart = y * (size * 4 + 1);
-    raw[rowStart] = 0; // filter type 0
+    raw[rowStart] = 0;
 
     for (let x = 0; x < size; x++) {
       const idx = rowStart + 1 + x * 4;
       const nx = Math.abs(x - cx) / (size * 0.42);
       const ny = y / (size - 1);
 
-      // Shield silhouette: wide top, tapering to point at bottom
       const maxHalfWidth = ny < 0.55 ? 0.92 : Math.max(0, 0.92 * (1 - (ny - 0.55) / 0.42));
       const inOuter = ny >= 0.08 && ny <= 0.94 && nx <= maxHalfWidth;
       const inInner = ny >= 0.17 && ny <= 0.84 && nx <= Math.max(0, maxHalfWidth - 0.18);
 
       if (inInner) {
-        // Dark cyber navy core with subtle cyan center highlight
-        const isCoreStripe = nx < 0.14 && ny > 0.28 && ny < 0.72;
-        raw[idx] = isCoreStripe ? 56 : 12;
-        raw[idx + 1] = isCoreStripe ? 189 : 36;
-        raw[idx + 2] = isCoreStripe ? 248 : 68;
+        const isCoreStripe = nx < 0.13 && ny > 0.28 && ny < 0.72;
+        raw[idx] = isCoreStripe ? 16 : 16;
+        raw[idx + 1] = isCoreStripe ? 185 : 20;
+        raw[idx + 2] = isCoreStripe ? 129 : 28;
         raw[idx + 3] = 255;
       } else if (inOuter) {
-        // Glowing cyan shield border (#38bdf8)
-        raw[idx] = 56;
-        raw[idx + 1] = 189;
-        raw[idx + 2] = 248;
+        // Precision emerald (#10B981) shield outline
+        raw[idx] = 16;
+        raw[idx + 1] = 185;
+        raw[idx + 2] = 129;
         raw[idx + 3] = 255;
       } else {
         raw[idx] = 0;
@@ -85,11 +164,8 @@ function createShieldTrayDataUrl(size = 32) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // RGBA
-  ihdr[10] = 0;
-  ihdr[11] = 0;
-  ihdr[12] = 0;
+  ihdr[8] = 8;
+  ihdr[9] = 6;
 
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   const png = Buffer.concat([
@@ -105,23 +181,43 @@ function createShieldTrayDataUrl(size = 32) {
 // ============================================================================
 // PYTHON FASTAPI BACKEND LIFECYCLE
 // ============================================================================
-function resolvePythonExecutable() {
-  if (process.env.CYBERSHIELD_PYTHON) {
+function resolvePythonExecutable(projectRoot) {
+  if (process.env.CYBERSHIELD_PYTHON && fs.existsSync(process.env.CYBERSHIELD_PYTHON)) {
     return process.env.CYBERSHIELD_PYTHON;
+  }
+  const winVenv = path.join(projectRoot, '.venv', 'Scripts', 'python.exe');
+  if (process.platform === 'win32' && fs.existsSync(winVenv)) {
+    return winVenv;
+  }
+  const nixVenv = path.join(projectRoot, '.venv', 'bin', 'python');
+  if (process.platform !== 'win32' && fs.existsSync(nixVenv)) {
+    return nixVenv;
   }
   return process.platform === 'win32' ? 'python' : 'python3';
 }
 
-function checkHealthOnce() {
+function fetchHealthStatus() {
   return new Promise((resolve) => {
     const req = http.get(HEALTH_URL, { timeout: 1000 }, (res) => {
-      res.resume();
-      resolve(res.statusCode === 200);
+      let body = '';
+      res.on('data', (d) => { body += d; });
+      res.on('end', () => {
+        if (res.statusCode !== 200) {
+          resolve({ ok: false, isAdmin: false });
+          return;
+        }
+        try {
+          const parsed = JSON.parse(body);
+          resolve({ ok: true, isAdmin: !!parsed.is_admin });
+        } catch (_) {
+          resolve({ ok: true, isAdmin: false });
+        }
+      });
     });
-    req.on('error', () => resolve(false));
+    req.on('error', () => resolve({ ok: false, isAdmin: false }));
     req.on('timeout', () => {
       req.destroy();
-      resolve(false);
+      resolve({ ok: false, isAdmin: false });
     });
   });
 }
@@ -129,8 +225,8 @@ function checkHealthOnce() {
 async function waitForBackendReady(timeoutMs = HEALTH_TIMEOUT_MS) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const ok = await checkHealthOnce();
-    if (ok) return true;
+    const status = await fetchHealthStatus();
+    if (status.ok) return true;
     await new Promise((r) => setTimeout(r, HEALTH_POLL_INTERVAL_MS));
   }
   return false;
@@ -153,7 +249,7 @@ function spawnBackend() {
     });
   } else {
     const projectRoot = path.resolve(__dirname, '..');
-    const pythonBin = resolvePythonExecutable();
+    const pythonBin = resolvePythonExecutable(projectRoot);
     const args = [
       '-m',
       'uvicorn',
@@ -165,7 +261,6 @@ function spawnBackend() {
     ];
 
     console.log(`[electron] Spawning backend: ${pythonBin} ${args.join(' ')} (cwd=${projectRoot})`);
-
     backendProcess = spawn(pythonBin, args, {
       cwd: projectRoot,
       windowsHide: true,
@@ -221,13 +316,13 @@ function killBackendTree() {
 // ============================================================================
 function createMainWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 1024,
+    width: 1380,
+    height: 840,
+    minWidth: 1080,
     minHeight: 680,
     autoHideMenuBar: true,
-    backgroundColor: '#050811',
-    title: 'CyberShield Mesh — Autonomous Intrusion Defense',
+    backgroundColor: '#0A0D12',
+    title: 'CyberShield Mesh — Endpoint Detection & Response',
     show: false,
     webPreferences: {
       contextIsolation: true,
@@ -237,7 +332,7 @@ function createMainWindow() {
 
   mainWindow.loadURL(APP_URL);
 
-  // Open external links (such as Google OAuth 2.0 consent) in the real system browser
+  // Open external URLs (such as Google OAuth 2.0 consent) in the real system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url) && !url.startsWith(APP_URL)) {
       shell.openExternal(url);
@@ -265,11 +360,11 @@ function createMainWindow() {
 function createSystemTray() {
   const icon = nativeImage.createFromDataURL(createShieldTrayDataUrl(32));
   tray = new Tray(icon);
-  tray.setToolTip('CyberShield Mesh — Autonomous Intrusion Defense');
+  tray.setToolTip('CyberShield Mesh — EDR Sensor Active');
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show CyberShield',
+      label: 'Open CyberShield Console',
       click: () => {
         if (!mainWindow) {
           createMainWindow();
@@ -281,7 +376,7 @@ function createSystemTray() {
     },
     { type: 'separator' },
     {
-      label: 'Quit',
+      label: 'Quit Sensor & Console',
       click: () => {
         isQuitting = true;
         app.quit();
@@ -306,16 +401,25 @@ function createSystemTray() {
 // APP LIFECYCLE
 // ============================================================================
 app.whenReady().then(async () => {
-  const alreadyUp = await checkHealthOnce();
-  if (!alreadyUp) {
+  const existing = await fetchHealthStatus();
+
+  // If on Windows and neither this Electron process nor an existing backend is elevated,
+  // automatically trigger UAC elevation so Windows Defender Firewall (/32) rules enforce live.
+  if (!existing.isAdmin && tryElevateOnWindows()) {
+    isQuitting = true;
+    app.quit();
+    return;
+  }
+
+  if (!existing.ok) {
     spawnBackend();
   }
 
   const ready = await waitForBackendReady(HEALTH_TIMEOUT_MS);
   if (!ready) {
     dialog.showErrorBox(
-      'CyberShield Mesh Backend Failed to Start',
-      `Timed out waiting for ${HEALTH_URL}.\n\nEnsure Python dependencies are installed:\n  pip install -r requirements.txt`
+      'CyberShield Mesh Sensor Failed to Start',
+      `Timed out waiting for ${HEALTH_URL}.\n\nRun INSTALL_WINDOWS.bat or verify Python packages:\n  .venv\\Scripts\\python.exe -m pip install -r requirements.txt`
     );
     killBackendTree();
     app.quit();

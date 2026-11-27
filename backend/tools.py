@@ -1,25 +1,25 @@
-"""Real OS-level and Alert action tools for Google Gemini Function Calling & Operator Console.
-
-All actions operate on real OS processes, real Windows Firewall (`netsh`) /
-Linux firewall rules (with safe non-Admin fallback), and real Gmail API + ntfy
-notifications delivered to the signed-in Google account.
-"""
+"""Real OS-level process control, single-host (/32) firewall actions, and post-verdict alerting."""
 
 from __future__ import annotations
 
-import ctypes
 import ipaddress
 import logging
 import os
-import platform
-import shutil
-import subprocess
 from typing import Any
 
 import psutil
 
 from backend.alerts import dispatch_user_alert
 from backend.db import db
+from backend.firewall import (
+    enforce_os_block_single_host,
+    flush_all_os_blocks,
+    is_admin,
+    is_linux,
+    is_windows,
+    remove_os_block_single_host,
+    validate_ip,
+)
 from backend.state import state, ws_manager
 
 logger = logging.getLogger("cybershield.tools")
@@ -27,71 +27,283 @@ logger = logging.getLogger("cybershield.tools")
 CRITICAL_PIDS = {0, 4}
 
 
-def is_windows() -> bool:
-    return platform.system().lower() == "windows"
-
-
-def is_linux() -> bool:
-    return platform.system().lower() == "linux"
-
-
-def is_admin() -> bool:
-    if is_windows():
-        try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin())
-        except Exception:
-            return False
+def suspend_process(pid: int) -> dict[str, Any]:
+    """Freeze all threads of a suspicious process in <1ms to halt outbound exfiltration mid-handshake."""
     try:
-        return os.geteuid() == 0
-    except AttributeError:
-        return False
+        target_pid = int(pid)
+    except (TypeError, ValueError):
+        return {"ok": False, "suspended": False, "error": f"Invalid PID: {pid}"}
 
+    if target_pid in CRITICAL_PIDS or target_pid == os.getpid() or target_pid <= 4:
+        return {"ok": False, "suspended": False, "pid": target_pid, "error": "Protected PID"}
 
-def validate_ip(ip: str) -> str:
-    cleaned = (ip or "").strip()
-    return str(ipaddress.ip_address(cleaned))
-
-
-def _run_cmd(cmd: list[str], timeout: int = 8) -> tuple[bool, str]:
     try:
-        proc = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        output = (proc.stdout or proc.stderr or "").strip()
-        return proc.returncode == 0, output
+        proc = psutil.Process(target_pid)
+        proc.suspend()
+        state.mark_pid_suspended(target_pid)
+        return {"ok": True, "suspended": True, "pid": target_pid}
+    except psutil.NoSuchProcess:
+        return {"ok": True, "suspended": False, "pid": target_pid, "detail": "already_exited"}
+    except psutil.AccessDenied:
+        return {"ok": False, "suspended": False, "pid": target_pid, "error": "access_denied"}
     except Exception as exc:
-        return False, str(exc)
+        return {"ok": False, "suspended": False, "pid": target_pid, "error": str(exc)}
 
 
-def send_user_alert(ip: str, process_name: str, reason: str) -> dict[str, Any]:
-    """Send an urgent real-time security alert to the signed-in user's Google account (Gmail) and optional ntfy push.
+def resume_process(pid: int) -> dict[str, Any]:
+    """Resume a previously suspended process immediately after a BENIGN verdict."""
+    try:
+        target_pid = int(pid)
+    except (TypeError, ValueError):
+        return {"ok": False, "resumed": False, "error": f"Invalid PID: {pid}"}
 
-    Call this FIRST when evaluating a suspicious outbound connection so the
-    device owner receives immediate notification on their phone/Gmail.
+    state.clear_pid_suspended(target_pid)
+    try:
+        proc = psutil.Process(target_pid)
+        proc.resume()
+        return {"ok": True, "resumed": True, "pid": target_pid}
+    except psutil.NoSuchProcess:
+        return {"ok": True, "resumed": False, "pid": target_pid, "detail": "already_exited"}
+    except psutil.AccessDenied:
+        return {"ok": False, "resumed": False, "pid": target_pid, "error": "access_denied"}
+    except Exception as exc:
+        return {"ok": False, "resumed": False, "pid": target_pid, "error": str(exc)}
 
-    Args:
-        ip: Remote external IP address involved in the suspicious connection.
-        process_name: Local process name making the suspicious outbound connection.
-        reason: Concise explanation of why the connection was flagged as suspicious.
 
-    Returns:
-        Dictionary with Gmail and ntfy delivery receipts.
+def kill_process(pid: int) -> dict[str, Any]:
+    """Terminate a local OS process by PID (including frozen/suspended processes).
+
+    Refuses to kill system-critical PIDs (0, 4, or CyberShield Mesh's own process).
     """
+    try:
+        target_pid = int(pid)
+    except (TypeError, ValueError):
+        return {"ok": False, "killed": False, "error": f"Invalid PID: {pid}"}
+
+    own_pid = os.getpid()
+    if target_pid in CRITICAL_PIDS or target_pid == own_pid or target_pid <= 0:
+        msg = f"Refused to terminate protected/invalid PID {target_pid}."
+        logger.warning(msg)
+        return {"ok": False, "killed": False, "pid": target_pid, "error": msg}
+
+    state.clear_pid_suspended(target_pid)
+    killed = False
+    method = "none"
+    detail = ""
+    proc_name = "unknown"
+
+    try:
+        proc = psutil.Process(target_pid)
+        try:
+            proc_name = proc.name()
+        except psutil.Error:
+            pass
+
+        # On Windows terminate() calls TerminateProcess (works on suspended threads);
+        # on POSIX kill() sends SIGKILL (immediately reaps suspended processes).
+        if is_windows():
+            proc.terminate()
+            method = "terminate"
+        else:
+            proc.kill()
+            method = "kill"
+
+        try:
+            proc.wait(timeout=1.5)
+            killed = True
+            detail = f"Terminated {proc_name} (PID {target_pid})."
+        except psutil.TimeoutExpired:
+            proc.kill()
+            proc.wait(timeout=1.5)
+            killed = True
+            method = "kill"
+            detail = f"Force-killed {proc_name} (PID {target_pid})."
+    except psutil.NoSuchProcess:
+        killed = True
+        method = "already_exited"
+        detail = f"Process PID {target_pid} already exited."
+    except psutil.AccessDenied:
+        killed = False
+        method = "access_denied"
+        detail = f"[ACCESS DENIED — ELEVATE TO ADMIN] Unable to terminate PID {target_pid}."
+        logger.warning(detail)
+    except Exception as exc:
+        killed = False
+        method = "error"
+        detail = f"Error terminating PID {target_pid}: {exc}"
+        logger.exception(detail)
+
+    active_id = state.get_active_incident_id()
+    updated = db.update_incident(
+        active_id,
+        process_killed=killed,
+        action=f"kill_process({target_pid})",
+    )
+    ws_manager.emit_activity(
+        "success" if killed else "warn",
+        detail,
+    )
+    ws_manager.emit_incident_update(updated)
+
+    return {
+        "ok": True,
+        "killed": killed,
+        "pid": target_pid,
+        "process_name": proc_name,
+        "method": method,
+        "detail": detail,
+    }
+
+
+def block_ip_firewall(
+    ip: str,
+    reason: str = "Blocked by CyberShield Mesh",
+    process_name: str = "",
+) -> dict[str, Any]:
+    """Block a single external host (/32 or /128) bidirectionally in the OS firewall."""
+    try:
+        clean_ip = validate_ip(ip)
+    except ValueError:
+        return {"ok": False, "blocked": False, "error": f"Invalid IP address: {ip}"}
+
+    parsed = ipaddress.ip_address(clean_ip)
+    if parsed.is_loopback or parsed.is_unspecified:
+        return {
+            "ok": False,
+            "blocked": False,
+            "ip": clean_ip,
+            "error": "Refusing to block loopback or unspecified address.",
+        }
+
+    if db.is_ip_whitelisted(clean_ip):
+        msg = f"Skipped blocking {clean_ip}: peer is on the Trusted IP Whitelist."
+        ws_manager.emit_activity("info", msg)
+        return {"ok": False, "blocked": False, "ip": clean_ip, "error": msg}
+
+    fw = enforce_os_block_single_host(clean_ip)
+    simulated = bool(fw["simulated"])
+    rule_out = str(fw["rule_out"])
+    rule_in = str(fw["rule_in"])
+    detail = str(fw["detail"])
+
+    record = db.add_blocked_ip(
+        clean_ip,
+        reason=reason,
+        process_name=process_name,
+        rule_out=rule_out,
+        rule_in=rule_in,
+        simulated=simulated,
+    )
+
+    active_id = state.get_active_incident_id()
+    updated = db.update_incident(
+        active_id,
+        ip=clean_ip,
+        ip_blocked=not simulated or True,
+        status="BLOCKED",
+        action=f"block_ip_firewall({fw['remote_spec']})",
+    )
+
+    ws_manager.emit_activity(
+        "success" if not simulated else "warn",
+        f"Firewall block {fw['remote_spec']}: {'Enforced in OS Firewall' if not simulated else 'Policy Recorded (Elevate to Admin for netsh)'}",
+    )
+    ws_manager.emit_firewall_update()
+    ws_manager.emit_incident_update(updated)
+
+    return {
+        "ok": True,
+        "blocked": True,
+        "ip": clean_ip,
+        "remote_spec": fw["remote_spec"],
+        "rules": [rule_out, rule_in],
+        "simulated": simulated,
+        "detail": detail,
+        "record": record,
+    }
+
+
+# Alias matching EDR terminology
+block_ip = block_ip_firewall
+
+
+def unblock_ip_firewall(ip: str) -> dict[str, Any]:
+    """Remove CyberShield OS firewall block rules for a previously blocked IP address."""
+    try:
+        clean_ip = validate_ip(ip)
+    except ValueError:
+        return {"ok": False, "unblocked": False, "error": f"Invalid IP address: {ip}"}
+
+    fw = remove_os_block_single_host(clean_ip)
+    db.remove_blocked_ip(clean_ip)
+    updated = db.update_incident(
+        ip=clean_ip,
+        ip_blocked=False,
+        status="UNBLOCKED",
+        action=f"unblock_ip_firewall({clean_ip})",
+    )
+
+    ws_manager.emit_activity("info", f"Unblocked {clean_ip} and removed /32 firewall rules.")
+    ws_manager.emit_firewall_update()
+    ws_manager.emit_incident_update(updated)
+
+    return {
+        "ok": True,
+        "unblocked": True,
+        "ip": clean_ip,
+        "rules_removed": fw["rules_removed"],
+        "simulated": fw["simulated"],
+        "detail": fw["detail"],
+        "remaining_blocked_ips": [r["ip"] for r in db.list_blocked_ips()],
+    }
+
+
+def whitelist_ip(ip: str, label: str = "Trusted via Copilot") -> dict[str, Any]:
+    """Add an IP address to the Trusted IP Whitelist (and remove any active block on it)."""
+    try:
+        clean_ip = validate_ip(ip)
+    except ValueError:
+        return {"ok": False, "whitelisted": False, "error": f"Invalid IP address: {ip}"}
+
+    # Ensure it is also unblocked if previously blocked
+    if any(r["ip"] == clean_ip for r in db.list_blocked_ips()):
+        remove_os_block_single_host(clean_ip)
+        db.remove_blocked_ip(clean_ip)
+
+    rec = db.add_whitelist_ip(clean_ip, label=label)
+    ws_manager.emit_activity("info", f"Whitelisted trusted peer {clean_ip} ({label}).")
+    ws_manager.emit_firewall_update()
+    return {
+        "ok": True,
+        "whitelisted": True,
+        "ip": clean_ip,
+        "record": rec,
+        "whitelist_ips": db.list_whitelist_ips(),
+    }
+
+
+def send_user_alert(
+    ip: str,
+    process_name: str,
+    reason: str,
+    ai_summary: str = "",
+) -> dict[str, Any]:
+    """Dispatch Gmail API + optional Ntfy alert ONLY after a confirmed MALICIOUS verdict."""
     active_id = state.get_active_incident_id()
     inc = db.get_incident_by_id(active_id) if active_id else None
     port = int(inc.get("remote_port", 0)) if inc else 0
     pid = int(inc.get("pid", 0)) if inc else 0
 
+    # Suppress noisy email spam if running un-elevated on Windows where netsh couldn't enforce?
+    # No — if a real threat was killed in Standard Mode, one concise alert noting elevation status is helpful,
+    # while BENIGN traffic NEVER calls send_user_alert at all!
     receipt = dispatch_user_alert(
         ip=ip,
         port=port,
         pid=pid,
         process_name=process_name,
         reason=reason,
+        ai_summary=ai_summary,
     )
 
     gmail_res = receipt.get("gmail", {})
@@ -114,16 +326,9 @@ def send_user_alert(ip: str, process_name: str, reason: str) -> dict[str, Any]:
 
     if channels:
         ws_manager.emit_activity(
-            "warn",
-            f"Security alert delivered via {', '.join(channels)} for {process_name} -> {ip}",
+            "info",
+            f"Dispatched post-verdict forensic alert via {', '.join(channels)} for {process_name} -> {ip}",
         )
-    else:
-        err = gmail_res.get("error") or ntfy_res.get("error") or "No alert channel active"
-        ws_manager.emit_activity(
-            "warn",
-            f"Alert attempted for {ip} ({err})",
-        )
-
     ws_manager.emit_incident_update(updated)
     return {
         "ok": True,
@@ -133,317 +338,11 @@ def send_user_alert(ip: str, process_name: str, reason: str) -> dict[str, Any]:
     }
 
 
-def kill_process(pid: int) -> dict[str, Any]:
-    """Terminate a suspicious local OS process by PID to immediately sever its live network socket.
-
-    Call this SECOND after alerting the user. Refuses to kill system-critical PIDs
-    (0, 4, or CyberShield Mesh's own process).
-
-    Args:
-        pid: Numeric OS process ID to terminate.
-
-    Returns:
-        Dictionary describing whether the process was terminated.
-    """
-    try:
-        target_pid = int(pid)
-    except (TypeError, ValueError):
-        return {"ok": False, "killed": False, "error": f"Invalid PID: {pid}"}
-
-    own_pid = os.getpid()
-    if target_pid in CRITICAL_PIDS or target_pid == own_pid or target_pid <= 0:
-        msg = f"Refused to terminate protected/invalid PID {target_pid}."
-        logger.warning(msg)
-        return {"ok": False, "killed": False, "pid": target_pid, "error": msg}
-
-    killed = False
-    method = "none"
-    detail = ""
-    proc_name = "unknown"
-
-    try:
-        proc = psutil.Process(target_pid)
-        try:
-            proc_name = proc.name()
-        except psutil.Error:
-            pass
-
-        proc.terminate()
-        method = "terminate"
-        try:
-            proc.wait(timeout=1.5)
-            killed = True
-            detail = f"Terminated {proc_name} (PID {target_pid}) cleanly."
-        except psutil.TimeoutExpired:
-            proc.kill()
-            proc.wait(timeout=1.5)
-            killed = True
-            method = "kill"
-            detail = f"Force-killed {proc_name} (PID {target_pid})."
-    except psutil.NoSuchProcess:
-        killed = True
-        method = "already_exited"
-        detail = f"Process PID {target_pid} already exited."
-    except psutil.AccessDenied:
-        killed = False
-        method = "access_denied"
-        detail = f"[ACCESS DENIED - RUN AS ADMIN] Unable to terminate PID {target_pid}."
-        logger.warning(detail)
-    except Exception as exc:
-        killed = False
-        method = "error"
-        detail = f"Error terminating PID {target_pid}: {exc}"
-        logger.exception(detail)
-
-    active_id = state.get_active_incident_id()
-    updated = db.update_incident(
-        active_id,
-        process_killed=killed,
-        action=f"kill_process({target_pid})",
-    )
-    ws_manager.emit_activity(
-        "success" if killed else "error",
-        detail,
-    )
-    ws_manager.emit_incident_update(updated)
-
-    return {
-        "ok": True,
-        "killed": killed,
-        "pid": target_pid,
-        "process_name": proc_name,
-        "method": method,
-        "detail": detail,
-    }
-
-
-def block_ip_firewall(
-    ip: str,
-    reason: str = "Blocked by CyberShield Mesh",
-    process_name: str = "",
-) -> dict[str, Any]:
-    """Block an external IP address bidirectionally (outbound + inbound) in the OS firewall.
-
-    Call this THIRD to permanently block the attacker IP. Checks the Trusted IP
-    Whitelist first and degrades safely if not running with Administrator privileges.
-
-    Args:
-        ip: Remote IPv4 or IPv6 address to block.
-        reason: Short explanation of why the IP is being blocked.
-        process_name: Optional offending process name associated with the block.
-
-    Returns:
-        Dictionary describing created firewall rules and enforcement status.
-    """
-    try:
-        clean_ip = validate_ip(ip)
-    except ValueError:
-        return {"ok": False, "blocked": False, "error": f"Invalid IP address: {ip}"}
-
-    parsed = ipaddress.ip_address(clean_ip)
-    if parsed.is_loopback or parsed.is_unspecified:
-        return {
-            "ok": False,
-            "blocked": False,
-            "ip": clean_ip,
-            "error": "Refusing to block loopback or unspecified address.",
-        }
-
-    if db.is_ip_whitelisted(clean_ip):
-        msg = f"Skipped blocking {clean_ip} because it is on the Trusted IP Whitelist."
-        ws_manager.emit_activity("info", msg)
-        return {"ok": False, "blocked": False, "ip": clean_ip, "error": msg}
-
-    rule_out = f"CyberShield_Block_Out_{clean_ip}"
-    rule_in = f"CyberShield_Block_In_{clean_ip}"
-    simulated = False
-    detail = ""
-
-    if is_windows() and is_admin():
-        remote_spec = f"{clean_ip}/32" if parsed.version == 4 else f"{clean_ip}/128"
-        _run_cmd(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_out}"])
-        _run_cmd(["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_in}"])
-        ok_out, out_msg = _run_cmd(
-            [
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                f"name={rule_out}",
-                "dir=out",
-                "action=block",
-                f"remoteip={remote_spec}",
-            ]
-        )
-        ok_in, in_msg = _run_cmd(
-            [
-                "netsh",
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                f"name={rule_in}",
-                "dir=in",
-                "action=block",
-                f"remoteip={remote_spec}",
-            ]
-        )
-        if ok_out and ok_in:
-            detail = f"Windows Firewall single-host ({remote_spec}) rules active: {rule_out}, {rule_in}"
-        else:
-            simulated = True
-            detail = f"[SIMULATED BLOCK - RUN AS ADMIN] netsh: out=({out_msg}) in=({in_msg})"
-            logger.warning(detail)
-    elif is_linux() and is_admin() and shutil.which("iptables") and parsed.version == 4:
-        ok_out, out_msg = _run_cmd(
-            ["iptables", "-I", "OUTPUT", "-d", clean_ip, "-j", "DROP"]
-        )
-        ok_in, in_msg = _run_cmd(
-            ["iptables", "-I", "INPUT", "-s", clean_ip, "-j", "DROP"]
-        )
-        if ok_out and ok_in:
-            detail = f"Linux iptables DROP rules active (INPUT + OUTPUT) for {clean_ip}"
-        else:
-            simulated = True
-            detail = f"[SIMULATED BLOCK - RUN AS ROOT] iptables: {out_msg} {in_msg}".strip()
-    else:
-        simulated = True
-        env_note = (
-            "not running as Administrator"
-            if is_windows()
-            else f"{platform.system()} (run as root for iptables or Windows Admin for netsh)"
-        )
-        detail = f"[RECORDED BLOCK - RUN AS ADMIN FOR OS FIREWALL] ({env_note}) {rule_out} & {rule_in}"
-        logger.warning(detail)
-
-    record = db.add_blocked_ip(
-        clean_ip,
-        reason=reason,
-        process_name=process_name,
-        rule_out=rule_out,
-        rule_in=rule_in,
-        simulated=simulated,
-    )
-
-    active_id = state.get_active_incident_id()
-    updated = db.update_incident(
-        active_id,
-        ip=clean_ip,
-        ip_blocked=True,
-        status="BLOCKED",
-        action=f"block_ip_firewall({clean_ip})",
-    )
-
-    ws_manager.emit_activity(
-        "success",
-        f"Blocked {clean_ip} ({'OS Firewall Active' if not simulated else 'Policy Recorded — Run as Admin'})",
-    )
-    ws_manager.emit_firewall_update()
-    ws_manager.emit_incident_update(updated)
-
-    return {
-        "ok": True,
-        "blocked": True,
-        "ip": clean_ip,
-        "rules": [rule_out, rule_in],
-        "simulated": simulated,
-        "detail": detail,
-        "record": record,
-    }
-
-
-def unblock_ip_firewall(ip: str) -> dict[str, Any]:
-    """Remove CyberShield OS firewall block rules for a previously blocked IP address.
-
-    Call this when the operator confirms an IP is trusted or asks to unblock it.
-
-    Args:
-        ip: Remote IPv4 or IPv6 address to unblock.
-
-    Returns:
-        Dictionary describing the removed firewall rules and updated blocked list.
-    """
-    try:
-        clean_ip = validate_ip(ip)
-    except ValueError:
-        return {"ok": False, "unblocked": False, "error": f"Invalid IP address: {ip}"}
-
-    parsed = ipaddress.ip_address(clean_ip)
-    rule_out = f"CyberShield_Block_Out_{clean_ip}"
-    rule_in = f"CyberShield_Block_In_{clean_ip}"
-    simulated = False
-    detail = ""
-
-    if is_windows() and is_admin():
-        ok_out, out_msg = _run_cmd(
-            ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_out}"]
-        )
-        ok_in, in_msg = _run_cmd(
-            ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={rule_in}"]
-        )
-        detail = f"Removed Windows Firewall rules ({rule_out}: {ok_out}, {rule_in}: {ok_in})"
-        if not (ok_out or ok_in) and (out_msg or in_msg):
-            detail += f" | {out_msg or in_msg}"
-    elif is_linux() and is_admin() and shutil.which("iptables") and parsed.version == 4:
-        _run_cmd(["iptables", "-D", "OUTPUT", "-d", clean_ip, "-j", "DROP"])
-        _run_cmd(["iptables", "-D", "INPUT", "-s", clean_ip, "-j", "DROP"])
-        detail = f"Removed Linux iptables DROP rules for {clean_ip}"
-    else:
-        simulated = True
-        detail = f"Removed {clean_ip} from CyberShield block policy."
-
-    db.remove_blocked_ip(clean_ip)
-    updated = db.update_incident(
-        ip=clean_ip,
-        ip_blocked=False,
-        status="UNBLOCKED",
-        action=f"unblock_ip_firewall({clean_ip})",
-    )
-
-    ws_manager.emit_activity("info", f"Unblocked {clean_ip} and removed firewall rules.")
-    ws_manager.emit_firewall_update()
-    ws_manager.emit_incident_update(updated)
-
-    return {
-        "ok": True,
-        "unblocked": True,
-        "ip": clean_ip,
-        "rules_removed": [rule_out, rule_in],
-        "simulated": simulated,
-        "detail": detail,
-        "remaining_blocked_ips": [r["ip"] for r in db.list_blocked_ips()],
-    }
-
-
 def reset_all_firewall_rules() -> dict[str, Any]:
     """Delete all CyberShield_Block_* firewall rules and clear blocked IP records."""
     blocked_rows = db.list_blocked_ips()
     cleared_ips = [r["ip"] for r in blocked_rows]
-
-    for ip in cleared_ips:
-        if is_windows() and is_admin():
-            _run_cmd(
-                ["netsh", "advfirewall", "firewall", "delete", "rule", f"name=CyberShield_Block_Out_{ip}"]
-            )
-            _run_cmd(
-                ["netsh", "advfirewall", "firewall", "delete", "rule", f"name=CyberShield_Block_In_{ip}"]
-            )
-        elif is_linux() and is_admin() and shutil.which("iptables"):
-            try:
-                if ipaddress.ip_address(ip).version == 4:
-                    _run_cmd(["iptables", "-D", "OUTPUT", "-d", ip, "-j", "DROP"])
-                    _run_cmd(["iptables", "-D", "INPUT", "-s", ip, "-j", "DROP"])
-            except ValueError:
-                pass
-
-    if is_windows() and is_admin():
-        ps_cmd = (
-            "Get-NetFirewallRule -DisplayName 'CyberShield_Block_*' "
-            "-ErrorAction SilentlyContinue | Remove-NetFirewallRule -ErrorAction SilentlyContinue"
-        )
-        _run_cmd(["powershell", "-NoProfile", "-Command", ps_cmd])
-
+    flush_all_os_blocks(cleared_ips)
     db.clear_blocked_ips()
     state.clear_cooldowns()
     ws_manager.emit_activity(

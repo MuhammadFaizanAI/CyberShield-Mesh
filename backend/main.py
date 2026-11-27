@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import ctypes
 import html
 import logging
+import platform
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -116,9 +118,43 @@ async def health_check() -> dict[str, Any]:
         "status": "ok",
         "model": settings.gemini_model,
         "monitoring": network_monitor.is_running,
+        "is_admin": state.is_admin(),
         "authenticated": user is not None,
         "oauth_configured": settings.has_google_oauth_config,
     }
+
+
+@app.post("/api/system/elevate")
+async def api_system_elevate() -> dict[str, Any]:
+    """Trigger Windows UAC Administrator relaunch when running un-elevated."""
+    if state.is_admin():
+        return {"ok": True, "already_admin": True, "detail": "Already running with Administrator privileges."}
+
+    if platform.system().lower() != "windows":
+        raise HTTPException(
+            status_code=400,
+            detail="Automatic UAC elevation is Windows-specific. On Linux, launch backend with sudo for iptables.",
+        )
+
+    launcher = settings.project_root / "LAUNCH_CYBERSHIELD_ADMIN.bat"
+    target = str(launcher if launcher.exists() else settings.project_root)
+    try:
+        rc = ctypes.windll.shell32.ShellExecuteW(
+            None,
+            "runas",
+            "cmd.exe",
+            f'/c "{target}"',
+            str(settings.project_root),
+            1,
+        )
+        if int(rc) <= 32:
+            raise HTTPException(status_code=403, detail="UAC elevation prompt was cancelled or denied.")
+        ws_manager.emit_activity("info", "Triggered UAC Administrator relaunch. Close non-admin instance once elevated window opens.")
+        return {"ok": True, "elevating": True, "detail": "UAC prompt launched. Approve elevation to activate Admin Firewall Mode."}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Elevation trigger failed: {exc}") from exc
 
 
 # ============================================================================
@@ -239,7 +275,7 @@ async def api_state() -> dict[str, Any]:
 
 @app.get("/api/connections")
 async def api_connections() -> dict[str, Any]:
-    conns, _ = await asyncio.to_thread(scan_live_connections)
+    conns, _ = await asyncio.to_thread(scan_live_connections, False)
     state.set_active_connections(conns)
     return {"connections": conns, "count": len(conns), "timestamp": utc_now_iso()}
 

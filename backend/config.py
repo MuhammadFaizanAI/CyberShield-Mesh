@@ -1,11 +1,13 @@
-"""Configuration loader for CyberShield Mesh.
+"""Configuration & threat-intelligence baseline constants for CyberShield Mesh.
 
 Reads environment variables from `.env` across both development mode and frozen
-PyInstaller `.exe` builds, and supports saving Google OAuth credentials cleanly.
+PyInstaller `.exe` builds, defines LOLBin / OS / Cloud baseline sets, and sets
+the 80ms (0.08s) pre-exfiltration socket polling cadence.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import os
 import sys
 from dataclasses import dataclass, field
@@ -92,39 +94,162 @@ def _parse_float(raw: str, default: float) -> float:
         return default
 
 
+# Living-off-the-Land Binaries (LOLBins) & high-risk CLI transfer/tunnel tools
 DEFAULT_LOLBINS: frozenset[str] = frozenset(
     {
         "curl.exe",
+        "curl",
+        "ncat.exe",
+        "ncat",
+        "nc.exe",
+        "nc",
         "powershell.exe",
         "pwsh.exe",
+        "pwsh",
         "cmd.exe",
         "certutil.exe",
         "bitsadmin.exe",
         "mshta.exe",
         "rundll32.exe",
         "regsvr32.exe",
+        "wscript.exe",
+        "cscript.exe",
         "ssh.exe",
+        "ssh",
         "scp.exe",
+        "scp",
         "sftp.exe",
-        "ncat.exe",
-        "nc.exe",
+        "sftp",
         "python.exe",
         "python3.exe",
+        "sim_intrusion.exe",
+        "sim_intrusion",
     }
 )
 
-STANDARD_WEB_PORTS: frozenset[int] = frozenset({53, 80, 123, 443, 5228, 8080, 8443})
+# Standard web, DNS, NTP, and XMPP/push messaging ports (incl. 5222/5223 for WhatsApp)
+STANDARD_SAFE_PORTS: frozenset[int] = frozenset(
+    {53, 80, 123, 443, 5222, 5223, 5228, 8080, 8443}
+)
+STANDARD_WEB_PORTS: frozenset[int] = STANDARD_SAFE_PORTS
 
-TRUSTED_BROWSERS: frozenset[str] = frozenset(
+# Trusted Windows OS Core Services (exempt on standard safe ports or verified cloud CIDRs)
+WINDOWS_CORE_PROCESSES: frozenset[str] = frozenset(
+    {
+        "system",
+        "svchost.exe",
+        "lsass.exe",
+        "services.exe",
+        "wininit.exe",
+        "csrss.exe",
+        "spoolsv.exe",
+        "taskhostw.exe",
+        "runtimebroker.exe",
+        "backgroundtaskhost.exe",
+        "searchhost.exe",
+        "widgetservice.exe",
+        "widgets.exe",
+        "smartscreen.exe",
+        "msmpeng.exe",
+        "nissrv.exe",
+        "wuauclt.exe",
+        "usocoreworker.exe",
+        "trustedinstaller.exe",
+        "tiworker.exe",
+        "sihost.exe",
+        "explorer.exe",
+        "shellexperiencehost.exe",
+        "startmenuexperiencehost.exe",
+        "phoneexperiencehost.exe",
+        "dwm.exe",
+        "ctfmon.exe",
+        "dllhost.exe",
+        "wmiprvse.exe",
+        "audiodg.exe",
+    }
+)
+
+# Trusted Browsers, WebView2 Runtime & Signed Productivity/Messaging Apps
+TRUSTED_DESKTOP_APPS: frozenset[str] = frozenset(
     {
         "chrome.exe",
         "msedge.exe",
+        "msedgewebview2.exe",
         "firefox.exe",
         "brave.exe",
         "vivaldi.exe",
         "opera.exe",
+        "whatsapp.exe",
+        "whatsapp.root.exe",
+        "teams.exe",
+        "ms-teams.exe",
+        "discord.exe",
+        "slack.exe",
+        "zoom.exe",
+        "onedrive.exe",
+        "onedrivestandaloneupdater.exe",
+        "spotify.exe",
+        "code.exe",
+        "cursor.exe",
+        "antigravity.exe",
+        "githubdesktop.exe",
+        "chrome",
+        "firefox",
+        "brave",
+        "msedge",
+        "code",
     }
 )
+TRUSTED_BROWSERS: frozenset[str] = TRUSTED_DESKTOP_APPS
+
+# Verified Cloud Infrastructure CIDRs (Meta/WhatsApp, Google, Microsoft/Azure, Cloudflare)
+VERIFIED_CLOUD_CIDR_MAP: dict[str, tuple[str, ...]] = {
+    "Meta": (
+        "157.240.0.0/16",
+        "31.13.24.0/21",
+        "31.13.64.0/18",
+        "185.60.216.0/22",
+    ),
+    "Google": (
+        "142.250.0.0/15",
+        "172.217.0.0/16",
+        "216.58.192.0/19",
+        "8.8.8.0/24",
+        "8.8.4.0/24",
+    ),
+    "Microsoft": (
+        "20.0.0.0/8",
+        "40.64.0.0/10",
+        "52.96.0.0/12",
+        "13.64.0.0/11",
+        "104.40.0.0/13",
+    ),
+    "Cloudflare": (
+        "104.16.0.0/12",
+        "172.64.0.0/13",
+        "1.1.1.0/24",
+    ),
+}
+
+VERIFIED_CLOUD_NETWORKS: tuple[tuple[str, ipaddress.IPv4Network], ...] = tuple(
+    (provider, ipaddress.IPv4Network(cidr))
+    for provider, cidrs in VERIFIED_CLOUD_CIDR_MAP.items()
+    for cidr in cidrs
+)
+
+
+def match_verified_cloud_provider(ip: str) -> str | None:
+    """Return cloud provider name if IPv4 falls inside verified cloud CIDRs, else None."""
+    try:
+        addr = ipaddress.ip_address(ip)
+        if not isinstance(addr, ipaddress.IPv4Address):
+            return None
+        for provider, net in VERIFIED_CLOUD_NETWORKS:
+            if addr in net:
+                return provider
+    except ValueError:
+        return None
+    return None
 
 
 @dataclass
@@ -172,9 +297,10 @@ class Settings:
     port: int = field(
         default_factory=lambda: _parse_int(os.getenv("PORT", "8000"), 8000)
     )
+    # 80ms pre-exfiltration polling interval
     monitor_interval_sec: float = field(
         default_factory=lambda: max(
-            0.5, _parse_float(os.getenv("MONITOR_INTERVAL_SEC", "1.0"), 1.0)
+            0.03, _parse_float(os.getenv("MONITOR_INTERVAL_SEC", "0.08"), 0.08)
         )
     )
     incident_cooldown_sec: float = field(
@@ -182,22 +308,10 @@ class Settings:
             5.0, _parse_float(os.getenv("INCIDENT_COOLDOWN_SEC", "30.0"), 30.0)
         )
     )
-    suspicious_processes: frozenset[str] = field(
-        default_factory=lambda: frozenset(
-            {
-                "sim_intrusion.exe",
-                "sim_intrusion",
-                "ncat.exe",
-                "ncat",
-                "nc.exe",
-                "nc",
-            }
-            | set(DEFAULT_LOLBINS)
-        )
-    )
+    suspicious_processes: frozenset[str] = field(default_factory=lambda: DEFAULT_LOLBINS)
     lolbins: frozenset[str] = field(default_factory=lambda: DEFAULT_LOLBINS)
-    standard_web_ports: frozenset[int] = field(default_factory=lambda: STANDARD_WEB_PORTS)
-    trusted_browsers: frozenset[str] = field(default_factory=lambda: TRUSTED_BROWSERS)
+    standard_web_ports: frozenset[int] = field(default_factory=lambda: STANDARD_SAFE_PORTS)
+    trusted_browsers: frozenset[str] = field(default_factory=lambda: TRUSTED_DESKTOP_APPS)
 
     @property
     def has_valid_gemini_key(self) -> bool:
